@@ -9,9 +9,9 @@ const options = {
       version: '1.0.0',
       description: 'CRUD API with JWT Auth for KIOT project',
     },
-    servers: [
-      { url: 'http://localhost:3000/api' }
-    ],
+    // servers: [
+    //   { url: 'http://localhost:3000/api' }
+    // ],
     components: {
       securitySchemes: {
         bearerAuth: {
