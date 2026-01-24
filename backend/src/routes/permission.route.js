@@ -47,7 +47,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /permissions:
+ * /api/permissions:
  *   get:
  *     summary: Get all permissions (DESC)
  *     tags: [Permissions]
@@ -67,7 +67,7 @@ router.get("/", authMiddleware, permissionController.findAll);
 
 /**
  * @swagger
- * /permissions/{id}:
+ * /api/permissions/{id}:
  *   get:
  *     summary: Get permission by ID
  *     tags: [Permissions]
@@ -93,7 +93,7 @@ router.get("/:id", authMiddleware, permissionController.findOne);
 
 /**
  * @swagger
- * /permissions:
+ * /api/permissions:
  *   post:
  *     summary: Create permission
  *     tags: [Permissions]
@@ -127,7 +127,7 @@ router.post("/", authMiddleware, permissionController.create);
 
 /**
  * @swagger
- * /permissions/{id}:
+ * /api/permissions/{id}:
  *   patch:
  *     summary: Update permission
  *     tags: [Permissions]
@@ -166,7 +166,7 @@ router.patch("/:id", authMiddleware, permissionController.update);
 
 /**
  * @swagger
- * /permissions/{id}:
+ * /api/permissions/{id}:
  *   delete:
  *     summary: Soft delete permission
  *     tags: [Permissions]

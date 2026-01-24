@@ -47,9 +47,6 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/order-items", orderItemRoutes);
 app.use("/api/statistics", statisticsRoutes);
 
-
-
-
 // nếu có route khác, ví dụ: app.use("/products", productRoutes);
 
 // ===== Swagger chung =====

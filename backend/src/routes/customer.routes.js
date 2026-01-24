@@ -46,7 +46,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /customers:
+ * /api/customers:
  *   get:
  *     summary: Get all customers (DESC)
  *     tags: [Customers]
@@ -60,7 +60,7 @@ router.get("/", authMiddleware, customerController.findAll);
 
 /**
  * @swagger
- * /customers/{id}:
+ * /api/customers/{id}:
  *   get:
  *     summary: Get customer by ID
  *     tags: [Customers]
@@ -82,7 +82,7 @@ router.get("/:id", authMiddleware, customerController.findOne);
 
 /**
  * @swagger
- * /customers:
+ * /api/customers:
  *   post:
  *     summary: Create customer (password will be hashed)
  *     tags: [Customers]
@@ -117,7 +117,7 @@ router.post("/", authMiddleware, customerController.create);
 
 /**
  * @swagger
- * /customers/{id}:
+ * /api/customers/{id}:
  *   patch:
  *     summary: Update customer (if password provided, will be re-hashed)
  *     tags: [Customers]
@@ -156,7 +156,7 @@ router.patch("/:id", authMiddleware, customerController.update);
 
 /**
  * @swagger
- * /customers/{id}:
+ * /api/customers/{id}:
  *   delete:
  *     summary: Soft delete customer
  *     tags: [Customers]

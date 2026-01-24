@@ -57,7 +57,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /users:
+ * /api/users:
  *   get:
  *     summary: Get all users (DESC). Search by name, filter by role and status.
  *     tags: [Users]
@@ -119,7 +119,7 @@ router.get("/", authMiddleware, userController.getAllUsers);
 
 /**
  * @swagger
- * /users/{id}:
+ * /api/users/{id}:
  *   get:
  *     summary: Get user by ID
  *     tags: [Users]
@@ -145,7 +145,7 @@ router.get("/:id", authMiddleware, userController.getUserById);
 
 /**
  * @swagger
- * /users:
+ * /api/users:
  *   post:
  *     summary: Create new user
  *     tags: [Users]
@@ -190,7 +190,7 @@ router.post("/", authMiddleware, userController.createUser);
 
 /**
  * @swagger
- * /users/{id}:
+ * /api/users/{id}:
  *   patch:
  *     summary: Update user by ID
  *     tags: [Users]
@@ -236,7 +236,7 @@ router.patch("/:id", authMiddleware, userController.updateUser);
 
 /**
  * @swagger
- * /users/{id}:
+ * /api/users/{id}:
  *   delete:
  *     summary: Delete user by ID
  *     tags: [Users]

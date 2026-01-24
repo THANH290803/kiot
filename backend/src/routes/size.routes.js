@@ -28,7 +28,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /sizes:
+ * /api/sizes:
  *   get:
  *     summary: Get all sizes (DESC)
  *     tags: [Sizes]
@@ -48,7 +48,7 @@ router.get("/", authMiddleware, sizeController.findAll);
 
 /**
  * @swagger
- * /sizes/{id}:
+ * /api/sizes/{id}:
  *   get:
  *     summary: Get size by ID
  *     tags: [Sizes]
@@ -74,7 +74,7 @@ router.get("/:id", authMiddleware, sizeController.findOne);
 
 /**
  * @swagger
- * /sizes:
+ * /api/sizes:
  *   post:
  *     summary: Create new size
  *     tags: [Sizes]
@@ -99,7 +99,7 @@ router.post("/", authMiddleware, sizeController.create);
 
 /**
  * @swagger
- * /sizes/{id}:
+ * /api/sizes/{id}:
  *   patch:
  *     summary: Update size by ID
  *     tags: [Sizes]
@@ -126,7 +126,7 @@ router.patch("/:id", authMiddleware, sizeController.update);
 
 /**
  * @swagger
- * /sizes/{id}:
+ * /api/sizes/{id}:
  *   delete:
  *     summary: Delete size by ID
  *     tags: [Sizes]

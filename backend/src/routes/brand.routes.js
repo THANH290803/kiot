@@ -35,7 +35,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /brands:
+ * /api/brands:
  *   get:
  *     summary: Get all brands (DESC)
  *     tags: [Brands]
@@ -49,7 +49,7 @@ router.get("/", authMiddleware, brandController.findAll);
 
 /**
  * @swagger
- * /brands/{id}:
+ * /api/brands/{id}:
  *   get:
  *     summary: Get brand by ID
  *     tags: [Brands]
@@ -71,7 +71,7 @@ router.get("/:id", authMiddleware, brandController.findOne);
 
 /**
  * @swagger
- * /brands:
+ * /api/brands:
  *   post:
  *     summary: Create brand
  *     tags: [Brands]
@@ -97,7 +97,7 @@ router.post("/", authMiddleware, brandController.create);
 
 /**
  * @swagger
- * /brands/{id}:
+ * /api/brands/{id}:
  *   patch:
  *     summary: Update brand
  *     tags: [Brands]
@@ -129,7 +129,7 @@ router.patch("/:id", authMiddleware, brandController.update);
 
 /**
  * @swagger
- * /brands/{id}:
+ * /api/brands/{id}:
  *   delete:
  *     summary: Soft delete brand
  *     tags: [Brands]

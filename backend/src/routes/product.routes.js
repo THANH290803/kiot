@@ -56,7 +56,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /products:
+ * /api/products:
  *   get:
  *     summary: Get all products (DESC, soft-delete filtered). Search by name, filter by category and brand.
  *     tags: [Products]
@@ -123,7 +123,7 @@ router.get("/", authMiddleware, productController.findAll);
 
 /**
  * @swagger
- * /products/{id}:
+ * /api/products/{id}:
  *   get:
  *     summary: Get product by ID
  *     tags: [Products]
@@ -145,7 +145,7 @@ router.get("/:id", authMiddleware, productController.findOne);
 
 /**
  * @swagger
- * /products:
+ * /api/products:
  *   post:
  *     summary: Create product
  *     tags: [Products]
@@ -180,7 +180,7 @@ router.post("/", authMiddleware, productController.create);
 
 /**
  * @swagger
- * /products/{id}:
+ * /api/products/{id}:
  *   patch:
  *     summary: Update product
  *     tags: [Products]
@@ -219,7 +219,7 @@ router.patch("/:id", authMiddleware, productController.update);
 
 /**
  * @swagger
- * /products/{id}:
+ * /api/products/{id}:
  *   delete:
  *     summary: Soft delete product
  *     tags: [Products]
@@ -241,7 +241,7 @@ router.delete("/:id", authMiddleware, productController.delete);
 
 /**
  * @swagger
- * /products/{id}/status:
+ * /api/products/{id}/status:
  *   patch:
  *     summary: Change product status
  *     tags: [Products]

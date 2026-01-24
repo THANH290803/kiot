@@ -26,7 +26,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /permission-groups:
+ * /api/permission-groups:
  *   get:
  *     summary: Get all permission groups (DESC)
  *     tags: [Permission Groups]
@@ -46,7 +46,7 @@ router.get("/", authMiddleware, permissionGroupController.findAll);
 
 /**
  * @swagger
- * /permission-groups/{id}:
+ * /api/permission-groups/{id}:
  *   get:
  *     summary: Get permission group by ID
  *     tags: [Permission Groups]
@@ -70,7 +70,7 @@ router.get("/:id", authMiddleware, permissionGroupController.findOne);
 
 /**
  * @swagger
- * /permission-groups:
+ * /api/permission-groups:
  *   post:
  *     summary: Create permission group
  *     tags: [Permission Groups]
@@ -99,7 +99,7 @@ router.post("/", authMiddleware, permissionGroupController.create);
 
 /**
  * @swagger
- * /permission-groups/{id}:
+ * /api/permission-groups/{id}:
  *   patch:
  *     summary: Update permission group
  *     tags: [Permission Groups]
@@ -131,7 +131,7 @@ router.patch("/:id", authMiddleware, permissionGroupController.update);
 
 /**
  * @swagger
- * /permission-groups/{id}:
+ * /api/permission-groups/{id}:
  *   delete:
  *     summary: Delete permission group
  *     tags: [Permission Groups]

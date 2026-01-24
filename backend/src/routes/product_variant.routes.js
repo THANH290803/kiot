@@ -43,7 +43,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /product-variants:
+ * /api/product-variants:
  *   get:
  *     summary: Get all product variants (DESC, soft-delete filtered). Search by sku, filter by product_id.
  *     tags: [ProductVariants]
@@ -68,7 +68,7 @@ router.get("/", authMiddleware, productVariantController.findAll);
 
 /**
  * @swagger
- * /product-variants/{id}:
+ * /api/product-variants/{id}:
  *   get:
  *     summary: Get product variant by ID
  *     tags: [ProductVariants]
@@ -90,7 +90,7 @@ router.get("/:id", authMiddleware, productVariantController.findOne);
 
 /**
  * @swagger
- * /product-variants:
+ * /api/product-variants:
  *   post:
  *     summary: Create product variant (avatar uploads to Cloudinary if provided)
  *     tags: [ProductVariants]
@@ -130,7 +130,7 @@ router.post("/", authMiddleware, productVariantController.create);
 
 /**
  * @swagger
- * /product-variants/{id}:
+ * /api/product-variants/{id}:
  *   patch:
  *     summary: Update product variant (avatar uploads to Cloudinary if provided)
  *     tags: [ProductVariants]
@@ -172,7 +172,7 @@ router.patch("/:id", authMiddleware, productVariantController.update);
 
 /**
  * @swagger
- * /product-variants/{id}:
+ * /api/product-variants/{id}:
  *   delete:
  *     summary: Soft delete product variant
  *     tags: [ProductVariants]

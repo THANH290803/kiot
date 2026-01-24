@@ -34,7 +34,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /colors:
+ * /api/colors:
  *   get:
  *     summary: Get all colors (DESC)
  *     tags: [Colors]
@@ -54,7 +54,7 @@ router.get("/", authMiddleware, colorController.findAll);
 
 /**
  * @swagger
- * /colors/{id}:
+ * /api/colors/{id}:
  *   get:
  *     summary: Get color by ID
  *     tags: [Colors]
@@ -80,7 +80,7 @@ router.get("/:id", authMiddleware, colorController.findOne);
 
 /**
  * @swagger
- * /colors:
+ * /api/colors:
  *   post:
  *     summary: Create color
  *     tags: [Colors]
@@ -112,7 +112,7 @@ router.post("/", authMiddleware, colorController.create);
 
 /**
  * @swagger
- * /colors/{id}:
+ * /api/colors/{id}:
  *   patch:
  *     summary: Update color
  *     tags: [Colors]
@@ -146,7 +146,7 @@ router.patch("/:id", authMiddleware, colorController.update);
 
 /**
  * @swagger
- * /colors/{id}:
+ * /api/colors/{id}:
  *   delete:
  *     summary: Delete color
  *     tags: [Colors]

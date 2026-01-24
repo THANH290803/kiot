@@ -112,7 +112,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /statistics/overview:
+ * /api/statistics/overview:
  *   get:
  *     summary: Get comprehensive statistics with comparison
  *     tags: [Statistics]
@@ -140,7 +140,7 @@ router.get("/overview", authMiddleware, statisticsController.getStatistics);
 
 /**
  * @swagger
- * /statistics/revenue-chart:
+ * /api/statistics/revenue-chart:
  *   get:
  *     summary: Get revenue chart data for dashboard
  *     tags: [Statistics]
@@ -189,7 +189,7 @@ router.get("/revenue-chart", authMiddleware, statisticsController.getRevenueChar
 
 /**
  * @swagger
- * /statistics/top-products:
+ * /api/statistics/top-products:
  *   get:
  *     summary: Get top selling products
  *     tags: [Statistics]
@@ -251,7 +251,7 @@ router.get("/top-products", authMiddleware, statisticsController.getTopProducts)
 
 /**
  * @swagger
- * /statistics/revenue-bar-chart:
+ * /api/statistics/revenue-bar-chart:
  *   get:
  *     summary: Get revenue bar chart data (hourly, daily, weekly, monthly)
  *     tags: [Statistics]
@@ -314,7 +314,7 @@ router.get("/revenue-bar-chart", authMiddleware, statisticsController.getRevenue
 
 /**
  * @swagger
- * /statistics/category-revenue-pie:
+ * /api/statistics/category-revenue-pie:
  *   get:
  *     summary: Get category revenue distribution pie chart
  *     tags: [Statistics]

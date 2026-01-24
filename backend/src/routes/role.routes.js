@@ -28,7 +28,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /roles:
+ * /api/roles:
  *   get:
  *     summary: Get all roles (DESC)
  *     tags: [Roles]
@@ -42,7 +42,7 @@ router.get("/", authMiddleware, roleController.findAll);
 
 /**
  * @swagger
- * /roles/{id}:
+ * /api/roles/{id}:
  *   get:
  *     summary: Get role by ID
  *     tags: [Roles]
@@ -69,7 +69,7 @@ router.get("/:id", authMiddleware, roleController.findOne);
 
 /**
  * @swagger
- * /roles:
+ * /api/roles:
  *   post:
  *     summary: Create a new role
  *     tags: [Roles]
@@ -95,7 +95,7 @@ router.post("/", authMiddleware, roleController.create);
 
 /**
  * @swagger
- * /roles/{id}:
+ * /api/roles/{id}:
  *   patch:
  *     summary: Update role by ID (partial)
  *     tags: [Roles]
@@ -126,7 +126,7 @@ router.patch("/:id", authMiddleware, roleController.update);
 
 /**
  * @swagger
- * /roles/{id}:
+ * /api/roles/{id}:
  *   delete:
  *     summary: Delete role by ID
  *     tags: [Roles]
@@ -148,7 +148,7 @@ router.delete("/:id", authMiddleware, roleController.delete);
 
 /**
  * @swagger
- * /roles/{id}/permissions:
+ * /api/roles/{id}/permissions:
  *   get:
  *     summary: Get permissions of a role
  *     tags: [Roles]
@@ -168,7 +168,7 @@ router.get("/:id/permissions", authMiddleware, roleController.getPermissions);
 
 /**
  * @swagger
- * /roles/{id}/permissions:
+ * /api/roles/{id}/permissions:
  *   post:
  *     summary: Set (replace) permissions for a role using pivot table
  *     tags: [Roles]
@@ -200,7 +200,7 @@ router.post("/:id/permissions", authMiddleware, roleController.setPermissions);
 
 /**
  * @swagger
- * /roles/{id}/permissions/{permissionId}:
+ * /api/roles/{id}/permissions/{permissionId}:
  *   delete:
  *     summary: Remove one permission from a role (pivot)
  *     tags: [Roles]
