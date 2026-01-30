@@ -28,15 +28,13 @@ const app = express();
  *             properties:
  *               username:
  *                 type: string
- *                 description: Username of the user
- *                 example: admin01          # <-- điền sẵn
+ *                 example: admin01
  *               password:
  *                 type: string
- *                 description: Password of the user
- *                 example: Admin01          # <-- điền sẵn
+ *                 example: Admin01
  *     responses:
  *       200:
- *         description: JWT token returned
+ *         description: Login successfully
  *         content:
  *           application/json:
  *             schema:
@@ -45,6 +43,12 @@ const app = express();
  *                 token:
  *                   type: string
  *                   description: JWT token
+ *                   example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *                 expires_at:
+ *                   type: string
+ *                   format: date-time
+ *                   description: Token expiration datetime (ISO 8601)
+ *                   example: 2026-01-18T10:30:00.000Z
  *                 user:
  *                   type: object
  *                   description: Logged in user info
@@ -55,6 +59,7 @@ const app = express();
  *       500:
  *         description: Server error
  */
+
 app.post("/login", authController.login);
 
 module.exports = app;

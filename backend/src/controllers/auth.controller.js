@@ -4,37 +4,45 @@ const jwt = require("jsonwebtoken");
 
 const User = db.User;
 
-// ===== Login =====
-// Login
+const TOKEN_EXPIRES_IN = "7d"; // 1 tuần
+const TOKEN_EXPIRES_IN_MS = 7 * 24 * 60 * 60 * 1000;
+
 const login = async (req, res) => {
   try {
     const { username, password } = req.body;
-    // Tìm user và include role
+
     const user = await User.findOne({
       where: { username },
       include: [
         {
           model: db.Role,
-          as: "role", // tên alias trong association
+          as: "role",
           attributes: ["id", "name"],
         },
       ],
     });
 
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
 
     const token = jwt.sign(
       { id: user.id, roleId: user.role_id },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: TOKEN_EXPIRES_IN }
     );
 
-    // Trả về token và user info
+    // 🔥 Thời điểm hết hạn token
+    const expiresAt = new Date(Date.now() + TOKEN_EXPIRES_IN_MS);
+
     res.json({
       token,
+      expires_at: expiresAt.toISOString(), // ISO 8601
       user: {
         id: user.id,
         employee_code: user.employee_code,
@@ -43,7 +51,7 @@ const login = async (req, res) => {
         email: user.email,
         phone_number: user.phone_number,
         address: user.address,
-        role: user.role, // role object
+        role: user.role,
         status: user.status,
         created_at: user.created_at,
         updated_at: user.updated_at,
@@ -53,6 +61,5 @@ const login = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
 
 module.exports = { login };
