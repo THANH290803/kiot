@@ -1,3 +1,5 @@
+"use client"
+
 import Link from "next/link"
 import {
   LayoutDashboard,
@@ -19,6 +21,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/app/auth-context"
+
 
 const navItems = [
   { label: "Tổng quan", icon: LayoutDashboard, href: "/" },
@@ -32,6 +37,14 @@ const navItems = [
 ]
 
 export function HeaderNav() {
+  const { user, logout } = useAuth()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    logout()
+    router.push("/login")
+  }
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-primary text-primary-foreground shadow-sm">
       <div className="container flex h-16 items-center justify-between px-4">
@@ -93,14 +106,14 @@ export function HeaderNav() {
 
           <div className="flex items-center gap-3 border-l border-white/20 pl-4">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium leading-none">Nguyễn Văn A</p>
-              <p className="text-xs text-primary-foreground/70">Admin</p>
+              <p className="text-sm font-medium leading-none">{user?.username}</p>
+              <p className="text-xs text-primary-foreground/70">{user?.role?.name}</p>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Avatar className="h-8 w-8 border border-white/20 cursor-pointer hover:opacity-80 transition-opacity">
                   <AvatarImage src="/user-avatar.jpg" alt="User" />
-                  <AvatarFallback>AD</AvatarFallback>
+                  <AvatarFallback>{user?.username?.charAt(0) || "U"}</AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -109,8 +122,12 @@ export function HeaderNav() {
                     <User className="h-4 w-4 mr-2" /> Hồ sơ cá nhân
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive focus:text-destructive">
-                  <LogOut className="h-4 w-4 mr-2" /> Đăng xuất
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-destructive focus:text-destructive cursor-pointer"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Đăng xuất
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

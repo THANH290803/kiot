@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { IBM_Plex_Serif, IBM_Plex_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { Providers } from "./providers"
 import "./globals.css"
 
 // Cấu hình IBM Plex Serif và IBM Plex Mono
@@ -47,7 +48,7 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body className={`${ibmPlexSerif.variable} ${ibmPlexMono.variable} font-sans antialiased`}>
-        {children}
+        <Providers>{children}</Providers>
         <Analytics />
       </body>
     </html>

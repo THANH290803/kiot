@@ -1,6 +1,9 @@
 "use client"
 
-import { HeaderNav } from "@/components/header-nav"   
+import { useAuth } from "@/app/auth-context"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
+import { HeaderNav } from "@/components/header-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   TrendingUp,
@@ -88,7 +91,19 @@ const bestSellingProducts = [
 ]
 
 export default function DashboardPage() {
+  const { isAuthenticated } = useAuth()
+  const router = useRouter()
   const [timeFilter, setTimeFilter] = useState<"hour" | "day" | "week" | "month">("day")
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/login")
+    }
+  }, [isAuthenticated, router])
+
+  if (!isAuthenticated) {
+    return null
+  }
 
   return (
     <div className="min-h-screen bg-background">
