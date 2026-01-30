@@ -1,6 +1,8 @@
 require("dotenv").config();
 const express = require("express");
 const { sequelize } = require("./models");
+const cors = require("cors");
+
 const userRoutes = require("./routes/user.routes");
 const swaggerSetup = require("./swagger/swagger");
 const authRoutes = require("./routes/auth.routes");
@@ -27,7 +29,49 @@ app.use(express.json());
   }
 })();
 
-// ===== Routes =====
+/* =========================
+   ✅ CORS CONFIG (LOCAL + PROD)
+========================= */
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://kiot-blush.vercel.app", // ❗ đổi đúng domain FE production của bạn
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Cho Postman / curl
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("CORS not allowed"));
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
+/* =========================
+   MIDDLEWARE
+========================= */
+app.use(express.json());
+
+/* =========================
+   DB CONNECT
+========================= */
+(async () => {
+  try {
+    await sequelize.authenticate();
+    console.log("✅ Database connected");
+  } catch (err) {
+    console.error("❌ DB connection failed:", err.message);
+  }
+})();
+
+/* =========================
+   ROUTES
+========================= */
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/roles", roleRoutes);
