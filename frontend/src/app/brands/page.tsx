@@ -5,57 +5,85 @@ import { HeaderNav } from "@/components/header-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Search, MoreVertical, Edit, Trash2, Tag, ChevronLeft, ChevronRight } from "lucide-react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
+import {
+  Plus, Search, MoreVertical, Edit, Trash2, Tag,
+} from "lucide-react"
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table"
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
+} from "@/components/ui/dialog"
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select"
+
+import { useBrands } from "@/hooks/useBrands"
 
 function BrandsPageContent() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
 
-  const allBrands = [
-    { id: 1, name: "Nike", origin: "USA", productCount: 78 },
-    { id: 2, name: "Adidas", origin: "Germany", productCount: 65 },
-    { id: 3, name: "Uniqlo", origin: "Japan", productCount: 52 },
-    { id: 4, name: "Zara", origin: "Spain", productCount: 48 },
-    { id: 5, name: "H&M", origin: "Sweden", productCount: 42 },
-    { id: 6, name: "Gucci", origin: "Italy", productCount: 38 },
-    { id: 7, name: "Prada", origin: "Italy", productCount: 35 },
-    { id: 8, name: "Louis Vuitton", origin: "France", productCount: 45 },
-  ]
+  const {
+    paginatedBrands,
+    loading,
 
-  const totalPages = Math.ceil(allBrands.length / rowsPerPage)
-  const startIdx = (currentPage - 1) * rowsPerPage
-  const brands = allBrands.slice(startIdx, startIdx + rowsPerPage)
+    search,
+    setSearch,
+
+    rowsPerPage,
+    setRowsPerPage,
+    currentPage,
+    setCurrentPage,
+    totalPages,
+    totalItems, // 👈 tổng số bản ghi
+
+    newName,
+    setNewName,
+    newDescription,
+    setNewDescription,
+    createBrand,
+
+    editingBrand,
+    setEditingBrand,
+    editName,
+    setEditName,
+    editDescription,
+    setEditDescription,
+    updateBrand,
+
+    deletingBrand,
+    setDeletingBrand,
+    deleteBrand,
+  } = useBrands()
 
   return (
     <div className="min-h-screen bg-background">
       <HeaderNav />
       <main className="container mx-auto p-6 space-y-6">
+
+        {/* HEADER */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Quản lý thương hiệu</h1>
-            <p className="text-sm text-muted-foreground">Quản lý các thương hiệu sản phẩm kinh doanh</p>
+            <p className="text-sm text-muted-foreground">
+              Quản lý các thương hiệu sản phẩm kinh doanh
+            </p>
           </div>
+
+          {/* ADD */}
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-primary">
+              <Button>
                 <Plus className="h-4 w-4 mr-2" /> Thêm thương hiệu
               </Button>
             </DialogTrigger>
@@ -63,28 +91,35 @@ function BrandsPageContent() {
               <DialogHeader>
                 <DialogTitle>Thêm thương hiệu mới</DialogTitle>
               </DialogHeader>
+
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="brand-name">Tên thương hiệu</Label>
-                  <Input id="brand-name" placeholder="Nhập tên thương hiệu..." />
+                  <Label>Tên thương hiệu</Label>
+                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="brand-origin">Xuất xứ</Label>
-                  <Input id="brand-origin" placeholder="Quốc gia xuất xứ..." />
+                  <Label>Mô tả</Label>
+                  <Input value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
                 </div>
               </div>
+
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  Hủy
-                </Button>
-                <Button className="bg-primary" onClick={() => setIsAddDialogOpen(false)}>
-                  Lưu
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Hủy</Button>
+                <Button
+                  onClick={async () => {
+                    await createBrand()
+                    setIsAddDialogOpen(false)
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? "Đang lưu..." : "Lưu"}
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
 
+        {/* TABLE */}
         <Card>
           <CardHeader>
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -92,29 +127,37 @@ function BrandsPageContent() {
                 <Tag className="h-5 w-5 text-primary" />
                 Danh sách thương hiệu
               </CardTitle>
+
               <div className="relative w-full md:w-64">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Tìm kiếm thương hiệu..." className="pl-8" />
+                <Input
+                  placeholder="Tìm kiếm thương hiệu..."
+                  className="pl-8"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                />
               </div>
             </div>
           </CardHeader>
+
           <CardContent className="space-y-4">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Tên thương hiệu</TableHead>
-                  <TableHead>Xuất xứ</TableHead>
-                  <TableHead className="text-right">Số sản phẩm</TableHead>
-                  <TableHead className="text-right">Thao tác</TableHead>
+                  <TableHead>Mô tả</TableHead>
+                  <TableHead className="text-right">Hành động</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {brands.map((brand) => (
+                {paginatedBrands.length ? paginatedBrands.map((brand) => (
                   <TableRow key={brand.id}>
                     <TableCell className="font-medium">{brand.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{brand.origin}</TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant="secondary">{brand.productCount}</Badge>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {brand.description || "--"}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -124,77 +167,176 @@ function BrandsPageContent() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditingBrand(brand)
+                              setEditName(brand.name)
+                              setEditDescription(brand.description || "")
+                              setIsEditDialogOpen(true)
+                            }}
+                          >
                             <Edit className="h-4 w-4 mr-2" /> Sửa
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => setIsDeleteDialogOpen(true)}>
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => {
+                              setDeletingBrand(brand)
+                              setIsDeleteDialogOpen(true)
+                            }}
+                          >
                             <Trash2 className="h-4 w-4 mr-2" /> Xóa
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-muted-foreground">
+                      Không tìm thấy thương hiệu
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
+
+            {/* PAGINATION (ĐẸP + ĐÚNG YÊU CẦU) */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-t pt-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm">Hiển thị</span>
-                <Select value={rowsPerPage.toString()} onValueChange={(val) => {
-                  setRowsPerPage(parseInt(val))
-                  setCurrentPage(1)
-                }}>
-                  <SelectTrigger className="w-20">
+
+              {/* LEFT */}
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <span>Hiển thị</span>
+                <Select
+                  value={rowsPerPage.toString()}
+                  onValueChange={(v) => {
+                    setRowsPerPage(Number(v))
+                    setCurrentPage(1)
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-[70px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
+                    {[10, 25, 50, 100].map(v => (
+                      <SelectItem key={v} value={v.toString()}>{v}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-                <span className="text-sm">bản ghi</span>
-                <span className="text-sm text-muted-foreground">Tổng số: {allBrands.length}</span>
+                <span>bản ghi · Tổng số:</span>
+                <b>{totalItems}</b>
               </div>
-              <div className="flex items-center gap-4">
+
+              {/* RIGHT */}
+              <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  size="icon"
                   disabled={currentPage === 1}
-                  className="gap-1"
+                  onClick={() => setCurrentPage(1)}
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  «
                 </Button>
-                <span className="text-sm font-medium">{currentPage}</span>
                 <Button
                   variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                  className="gap-1"
+                  size="icon"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(currentPage - 1)}
                 >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
+                  ‹
+                </Button>
+
+                <span className="px-3 text-sm font-medium">
+                  {currentPage} / {totalPages}
+                </span>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                >
+                  ›
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                >
+                  »
                 </Button>
               </div>
             </div>
           </CardContent>
         </Card>
 
+        {/* EDIT */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Sửa thương hiệu</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Tên thương hiệu</Label>
+                <Input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Mô tả</Label>
+                <Input
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={async () => {
+                  await updateBrand()
+                  setIsEditDialogOpen(false)
+                }}
+                disabled={loading}
+              >
+                {loading ? "Đang lưu..." : "Lưu"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* DELETE */}
         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Xác nhận xóa thương hiệu</AlertDialogTitle>
               <AlertDialogDescription>
-                Bạn có chắc chắn muốn xóa thương hiệu này không? Hành động này không thể hoàn tác.
+                Bạn có chắc chắn muốn xóa{" "}
+                <b>{deletingBrand?.name}</b> không? Hành động này không thể hoàn tác.
               </AlertDialogDescription>
             </AlertDialogHeader>
+
             <AlertDialogFooter>
               <AlertDialogCancel>Hủy</AlertDialogCancel>
-              <AlertDialogAction className="bg-destructive text-destructive-foreground">Xóa</AlertDialogAction>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground"
+                onClick={async () => {
+                  await deleteBrand()
+                  setIsDeleteDialogOpen(false)
+                }}
+              >
+                Xóa
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

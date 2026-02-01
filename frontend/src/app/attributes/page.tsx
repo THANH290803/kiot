@@ -26,7 +26,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 function AttributesPageContent() {
   const [isAddColorDialogOpen, setIsAddColorDialogOpen] = useState(false)
   const [isAddSizeDialogOpen, setIsAddSizeDialogOpen] = useState(false)
+  const [isEditColorDialogOpen, setIsEditColorDialogOpen] = useState(false)
+  const [isEditSizeDialogOpen, setIsEditSizeDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [editingColor, setEditingColor] = useState<any>(null)
+  const [editingSize, setEditingSize] = useState<any>(null)
   const [colorPage, setColorPage] = useState(1)
   const [sizePage, setSizePage] = useState(1)
   const [colorRowsPerPage, setColorRowsPerPage] = useState(10)
@@ -148,28 +152,32 @@ function AttributesPageContent() {
                         </TableCell>
                         <TableCell className="font-medium">{color.name}</TableCell>
                         <TableCell className="text-muted-foreground font-mono">{color.code}</TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Edit className="h-4 w-4 mr-2" /> Sửa
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => setIsDeleteDialogOpen(true)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" /> Xóa
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditingColor(color)
+                              setIsEditColorDialogOpen(true)
+                            }}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Sửa
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600">
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Xóa
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -288,7 +296,12 @@ function AttributesPageContent() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setEditingSize(size)
+                                  setIsEditSizeDialogOpen(true)
+                                }}
+                              >
                                 <Edit className="h-4 w-4 mr-2" /> Sửa
                               </DropdownMenuItem>
                               <DropdownMenuItem
@@ -352,6 +365,62 @@ function AttributesPageContent() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <Dialog open={isEditColorDialogOpen} onOpenChange={setIsEditColorDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Sửa màu sắc</DialogTitle>
+            </DialogHeader>
+            {editingColor && (
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-color-name">Tên màu</Label>
+                  <Input id="edit-color-name" defaultValue={editingColor.name} placeholder="Nhập tên màu..." />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-color-code">Mã màu</Label>
+                  <Input id="edit-color-code" defaultValue={editingColor.code} placeholder="#000000" />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditColorDialogOpen(false)}>
+                Hủy
+              </Button>
+              <Button className="bg-primary" onClick={() => setIsEditColorDialogOpen(false)}>
+                Lưu
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isEditSizeDialogOpen} onOpenChange={setIsEditSizeDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Sửa kích cỡ</DialogTitle>
+            </DialogHeader>
+            {editingSize && (
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-size-name">Tên kích cỡ</Label>
+                  <Input id="edit-size-name" defaultValue={editingSize.name} placeholder="Nhập tên kích cỡ..." />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-size-desc">Mô tả</Label>
+                  <Input id="edit-size-desc" defaultValue={editingSize.description} placeholder="Mô tả kích cỡ..." />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditSizeDialogOpen(false)}>
+                Hủy
+              </Button>
+              <Button className="bg-primary" onClick={() => setIsEditSizeDialogOpen(false)}>
+                Lưu
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <AlertDialogContent>
