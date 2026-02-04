@@ -25,7 +25,7 @@ app.use(express.json());
 const allowedOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
-  "https://kiot-7o5h.onrender.com",
+  "https://kiot-blush.vercel.app",
 ];
 
 app.use(
