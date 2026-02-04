@@ -48,13 +48,58 @@ const router = express.Router();
  * @swagger
  * /api/customers:
  *   get:
- *     summary: Get all customers (DESC)
+ *     summary: Get all customers (DESC). Search by name or email, pagination.
  *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: keyword
+ *         schema:
+ *           type: string
+ *         description: Search by customer name or email (LIKE)
+ *
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Rows per page
+ *
  *     responses:
  *       200:
- *         description: List of customers
+ *         description: Customer list with pagination
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 customers:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Customer'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                       example: 50
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 5
  */
 router.get("/", authMiddleware, customerController.findAll);
 

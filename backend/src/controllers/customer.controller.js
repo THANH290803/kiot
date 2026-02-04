@@ -1,5 +1,6 @@
 const db = require("../models");
 const bcrypt = require("bcryptjs");
+const { Op } = require("sequelize");
 
 const Customer = db.Customer;
 
@@ -41,15 +42,45 @@ exports.create = async (req, res) => {
   }
 };
 
-// ================= GET ALL (CHƯA XOÁ - DESC) =================
+// ================= GET ALL (SEARCH + PAGINATION) =================
 exports.findAll = async (req, res) => {
   try {
-    const customers = await Customer.findAll({
-      where: { deleted_at: null },
+    const {
+      keyword = "",
+      page = 1,
+      limit = 10,
+    } = req.query;
+
+    const currentPage = parseInt(page);
+    const pageSize = parseInt(limit);
+    const offset = (currentPage - 1) * pageSize;
+
+    const whereCondition = {
+      deleted_at: null,
+      ...(keyword && {
+        [Op.or]: [
+          { name: { [Op.iLike]: `%${keyword}%` } },   // PostgreSQL
+          { email: { [Op.iLike]: `%${keyword}%` } },
+        ],
+      }),
+    };
+
+    const { rows, count } = await Customer.findAndCountAll({
+      where: whereCondition,
       order: [["id", "DESC"]],
+      limit: pageSize,
+      offset,
     });
 
-    return res.status(200).json(customers.map(formatCustomer));
+    return res.status(200).json({
+      customers: rows.map(formatCustomer),
+      pagination: {
+        total: count,
+        page: currentPage,
+        limit: pageSize,
+        totalPages: Math.ceil(count / pageSize),
+      },
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: error.message });
