@@ -204,46 +204,44 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// ===== LOGIN =====
-const login = async (req, res) => {
+// ===== CHANGE USER STATUS =====
+const changeUserStatus = async (req, res) => {
   try {
-    const { username, password } = req.body;
-    const user = await User.findOne({
-      where: { username },
+    const { status } = req.body;
+
+    if (status === undefined) {
+      return res.status(400).json({ message: "status is required" });
+    }
+
+    const user = await User.findByPk(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    await user.update({ status });
+
+    const updatedUser = await User.findByPk(user.id, {
       include: [{ model: Role, as: "role", attributes: ["id", "name"] }],
     });
 
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
-
-    const token = jwt.sign(
-      { id: user.id, roleId: user.role_id },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-
     res.json({
-      token,
-      user: {
-        id: user.id,
-        employee_code: user.employee_code,
-        username: user.username,
-        name: user.name,
-        email: user.email,
-        phone_number: user.phone_number,
-        address: user.address,
-        role: user.role,
-        status: user.status,
-        created_at: user.created_at,
-        updated_at: user.updated_at,
+      message: "User status updated successfully",
+      data: {
+        employee_code: updatedUser.employee_code,
+        username: updatedUser.username,
+        name: updatedUser.name,
+        status: updatedUser.status,
+        role: {
+          id: updatedUser.role.id,
+          name: updatedUser.role.name,
+        },
       },
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 // ===== EXPORT =====
 module.exports = {
@@ -252,5 +250,5 @@ module.exports = {
   getUserById,
   updateUser,
   deleteUser,
-  login,
+  changeUserStatus,
 };

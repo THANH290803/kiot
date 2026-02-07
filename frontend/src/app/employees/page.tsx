@@ -1,15 +1,21 @@
-  "use client"
+"use client"
 
 import { HeaderNav } from "@/components/header-nav"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Search, FileDown, Filter, MoreHorizontal, Edit, Trash2, Eye, ShieldCheck, Lock } from "lucide-react"
+import { Plus, Search, FileDown, Filter, MoreHorizontal, Edit, Trash2, Eye, ShieldCheck, Lock, ChevronDown, Check } from "lucide-react"
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +40,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ALL_PERMISSIONS, ROLE_PERMISSIONS, type UserRole } from "@/lib/permissions"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
+
 
 const ROLES = {
   admin: { label: "Quản lý cao cấp", color: "bg-red-100 text-red-700" },
@@ -108,6 +115,9 @@ export default function EmployeesPage() {
   const [deletingEmployeeId, setDeletingEmployeeId] = useState<number | null>(null)
   const [selectedRoleForPermissions, setSelectedRoleForPermissions] = useState<UserRole>("admin")
   const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [statusChangeId, setStatusChangeId] = useState<number | null>(null)
+  const [tempStatus, setTempStatus] = useState<string>("")
+  const [openStatusPopoverId, setOpenStatusPopoverId] = useState<number | null>(null)
 
   const handleEdit = (employee: any) => {
     setEditingEmployee(employee)
@@ -133,6 +143,28 @@ export default function EmployeesPage() {
   const getRoleLabel = (role: string) => {
     const roleConfig = ROLES[role as keyof typeof ROLES]
     return roleConfig ? roleConfig.label : role
+  }
+
+  const handleStatusChange = (employeeId: number, currentStatus: string) => {
+    setStatusChangeId(employeeId)
+    setTempStatus(currentStatus)
+  }
+
+  const applyStatusChange = () => {
+    if (statusChangeId !== null) {
+      setEmployees(
+        employees.map((e) => (e.id === statusChangeId ? { ...e, status: tempStatus } : e))
+      )
+      setStatusChangeId(null)
+      setTempStatus("")
+      setOpenStatusPopoverId(null)
+    }
+  }
+
+  const cancelStatusChange = () => {
+    setStatusChangeId(null)
+    setTempStatus("")
+    setOpenStatusPopoverId(null)
   }
 
   return (
@@ -201,7 +233,7 @@ export default function EmployeesPage() {
                 <TableHead>Email</TableHead>
                 <TableHead>Số điện thoại</TableHead>
                 <TableHead>Vai trò</TableHead>
-                <TableHead>Chi nhánh</TableHead>
+                {/* <TableHead>Chi nhánh</TableHead> */}
                 <TableHead>Trạng thái</TableHead>
                 <TableHead className="w-[80px] text-center">Thao tác</TableHead>
               </TableRow>
@@ -223,11 +255,107 @@ export default function EmployeesPage() {
                       {getRoleLabel(employee.role)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm">{employee.branch}</TableCell>
+                  {/* <TableCell className="text-sm">{employee.branch}</TableCell> */}
                   <TableCell>
-                    <Badge variant={employee.status === "active" ? "default" : "outline"}>
-                      {employee.status === "active" ? "Đang hoạt động" : "Ngừng hoạt động"}
-                    </Badge>
+                    <Popover
+                      open={openStatusPopoverId === employee.id}
+                      onOpenChange={(open) => {
+                        if (open) {
+                          setOpenStatusPopoverId(employee.id)
+                          setStatusChangeId(employee.id)
+                          setTempStatus(employee.status)
+                        } else {
+                          cancelStatusChange()
+                        }
+                      }}
+                    >
+                      <PopoverTrigger asChild>
+                        <div className="flex items-center gap-2 cursor-pointer group w-fit px-3 py-1 rounded-md hover:bg-muted transition-colors">
+                          <Badge variant={employee.status === "active" ? "default" : "outline"}>
+                            {employee.status === "active" ? "Đang hoạt động" : "Ngừng hoạt động"}
+                          </Badge>
+                          <ChevronDown className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="w-60 p-0 shadow-lg border border-border/50">
+                        <div className="p-4 space-y-3">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+                              Chọn trạng thái
+                            </p>
+                          </div>
+                          <div className="space-y-1.5">
+                            <button
+                              onClick={() => {
+                                setTempStatus("active")
+                                setStatusChangeId(employee.id)
+                              }}
+                              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all text-sm font-medium ${
+                                tempStatus === "active" && statusChangeId === employee.id
+                                  ? "bg-green-50 text-green-700 border border-green-200"
+                                  : "hover:bg-muted/60 text-foreground border border-transparent"
+                              }`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <div
+                                  className={`w-2 h-2 rounded-full ${
+                                    tempStatus === "active" && statusChangeId === employee.id
+                                      ? "bg-green-600"
+                                      : "bg-muted-foreground/30"
+                                  }`}
+                                />
+                                Đang hoạt động
+                              </span>
+                              {tempStatus === "active" && statusChangeId === employee.id && (
+                                <Check className="h-4 w-4 text-green-600 font-bold" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setTempStatus("inactive")
+                                setStatusChangeId(employee.id)
+                              }}
+                              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all text-sm font-medium ${
+                                tempStatus === "inactive" && statusChangeId === employee.id
+                                  ? "bg-red-50 text-red-700 border border-red-200"
+                                  : "hover:bg-muted/60 text-foreground border border-transparent"
+                              }`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <div
+                                  className={`w-2 h-2 rounded-full ${
+                                    tempStatus === "inactive" && statusChangeId === employee.id
+                                      ? "bg-red-600"
+                                      : "bg-muted-foreground/30"
+                                  }`}
+                                />
+                                Ngừng hoạt động
+                              </span>
+                              {tempStatus === "inactive" && statusChangeId === employee.id && (
+                                <Check className="h-4 w-4 text-red-600 font-bold" />
+                              )}
+                            </button>
+                          </div>
+                          <div className="border-t pt-3 flex gap-2">
+                            <Button
+                              size="sm"
+                              className="flex-1 h-8 text-xs bg-primary hover:bg-primary/90 font-medium"
+                              onClick={applyStatusChange}
+                            >
+                              Áp dụng
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-8 text-xs font-medium bg-transparent"
+                              onClick={cancelStatusChange}
+                            >
+                              Hủy
+                            </Button>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </TableCell>
                   <TableCell className="text-center">
                     <DropdownMenu>
@@ -283,7 +411,7 @@ export default function EmployeesPage() {
             <Pagination className="mx-0 w-auto">
               <PaginationContent>
                 <PaginationItem>
-                  <PaginationPrevious href="#" onClick={(e) => e.preventDefault()}/>
+                  <PaginationPrevious href="#" onClick={(e) => e.preventDefault()} />
                 </PaginationItem>
                 <PaginationItem>
                   <PaginationLink href="#" isActive>
@@ -291,7 +419,7 @@ export default function EmployeesPage() {
                   </PaginationLink>
                 </PaginationItem>
                 <PaginationItem>
-                  <PaginationNext href="#" onClick={(e) => e.preventDefault()}/>
+                  <PaginationNext href="#" onClick={(e) => e.preventDefault()} />
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
