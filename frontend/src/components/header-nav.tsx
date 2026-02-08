@@ -16,6 +16,7 @@ import {
   Palette,
   User,
   ShieldCheck,
+  Lock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -87,6 +88,34 @@ export function HeaderNav() {
                   <Link href="/attributes" className="cursor-pointer">
                     <Palette className="h-4 w-4 mr-2" />
                     Màu sắc & Kích cỡ
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="hover:bg-white/10 text-white font-medium">
+                  <ShieldCheck className="h-4 w-4 mr-2" />
+                  Quyền & Vai Trò
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link href="/roles" className="cursor-pointer">
+                    <ShieldCheck className="h-4 w-4 mr-2" />
+                    Vai Trò
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/permissions" className="cursor-pointer">
+                    <Lock className="h-4 w-4 mr-2" />
+                    Quyền Hạn
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/permission-groups" className="cursor-pointer">
+                    <FolderOpen className="h-4 w-4 mr-2" />
+                    Nhóm Quyền Hạn
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
