@@ -8,6 +8,14 @@ module.exports = (sequelize, DataTypes) => {
         autoIncrement: true,
       },
 
+      // ===== CODE =====
+      code: {
+        type: DataTypes.STRING(100),
+        allowNull: false,
+        unique: true,
+        comment: "Mã quyền (VD: USER_CREATE, ORDER_UPDATE)",
+      },
+
       name: {
         type: DataTypes.STRING(150),
         allowNull: false,
@@ -48,6 +56,7 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "permission_id",
       otherKey: "role_id",
       as: "roles",
+      timestamps: false,
     });
   };
 

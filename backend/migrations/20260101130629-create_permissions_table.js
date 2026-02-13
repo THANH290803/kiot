@@ -11,6 +11,13 @@ module.exports = {
         allowNull: false,
       },
 
+      code: {
+        type: Sequelize.STRING(100),
+        allowNull: false,
+        unique: true,
+        comment: "Mã nhóm quyền (VD: USER_MANAGEMENT, ORDER_MANAGEMENT)",
+      },
+
       name: {
         type: Sequelize.STRING(150),
         allowNull: false,

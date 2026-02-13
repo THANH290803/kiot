@@ -18,16 +18,27 @@ exports.create = async (req, res) => {
   }
 };
 
-// ================= GET ALL (CHƯA XOÁ - DESC) =================
 exports.findAll = async (req, res) => {
   try {
-    const permissionGroups = await PermissionGroup.findAll({
-      where: {
-        deleted_at: null, // ✅ chỉ lấy chưa xoá
-      },
+    const groups = await PermissionGroup.findAll({
+      where: { deleted_at: null },
       order: [["id", "DESC"]],
     });
-    return res.status(200).json(permissionGroups);
+
+    const result = await Promise.all(
+      groups.map(async (group) => {
+        const count = await group.countPermissions({
+          where: { deleted_at: null },
+        });
+
+        return {
+          ...group.toJSON(),
+          permission_count: count,
+        };
+      })
+    );
+
+    return res.status(200).json(result);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error" });

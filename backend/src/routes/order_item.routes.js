@@ -52,7 +52,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /order-items:
+ * /api/order-items:
  *   post:
  *     summary: Create new order item
  *     tags: [OrderItems]
@@ -80,7 +80,7 @@ router.post("/", authMiddleware, orderItemController.create);
 
 /**
  * @swagger
- * /order-items:
+ * /api/order-items:
  *   get:
  *     summary: Get all order items (DESC, soft-delete filtered). Filter by order_id and product_id.
  *     tags: [OrderItems]
@@ -137,7 +137,7 @@ router.get("/", authMiddleware, orderItemController.findAll);
 
 /**
  * @swagger
- * /order-items/{id}:
+ * /api/order-items/{id}:
  *   get:
  *     summary: Get order item by ID
  *     tags: [OrderItems]
@@ -164,7 +164,7 @@ router.get("/:id", authMiddleware, orderItemController.findOne);
 
 /**
  * @swagger
- * /order-items/{id}:
+ * /api/order-items/{id}:
  *   patch:
  *     summary: Update order item
  *     tags: [OrderItems]
@@ -197,7 +197,7 @@ router.patch("/:id", authMiddleware, orderItemController.update);
 
 /**
  * @swagger
- * /order-items/{id}:
+ * /api/order-items/{id}:
  *   delete:
  *     summary: Soft delete order item
  *     tags: [OrderItems]

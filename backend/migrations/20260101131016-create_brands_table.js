@@ -16,6 +16,12 @@ module.exports = {
         allowNull: false,
       },
 
+      description: {
+        type: Sequelize.STRING(500),
+        allowNull: true,
+        comment: "Mô tả chi tiết",
+      },
+
       // ===== SOFT DELETE =====
       deleted_at: {
         type: Sequelize.DATE,

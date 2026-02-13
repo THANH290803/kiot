@@ -11,6 +11,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(100),
         allowNull: false,
       },
+      description: {
+        type: DataTypes.STRING(500),
+        allowNull: true,
+      },
       deleted_at: {
         type: DataTypes.DATE,
         allowNull: true,
@@ -32,6 +36,7 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "role_id",
       otherKey: "permission_id",
       as: "permissions",
+      timestamps: false,
     });
   };
 

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Plus, Search, FileDown, Filter, MoreHorizontal, Edit, Trash2, Eye, ShieldCheck, Lock, ChevronDown, Check } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import {
   DropdownMenu,
@@ -37,19 +37,31 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ALL_PERMISSIONS, ROLE_PERMISSIONS, type UserRole } from "@/lib/permissions"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert"
+// import { ALL_PERMISSIONS, ROLE_PERMISSIONS, type UserRole } from "@/lib/permissions"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { usePermissions } from "@/hooks/usePermissions"
+import { usePermissionGroups } from "@/hooks/usePermissionGroups"
+import { useRoles } from "@/hooks/useRoles"
 
-
-const ROLES = {
-  admin: { label: "Quản lý cao cấp", color: "bg-red-100 text-red-700" },
-  manager: { label: "Quản lý", color: "bg-purple-100 text-purple-700" },
-  sales: { label: "Nhân viên bán hàng", color: "bg-blue-100 text-blue-700" },
-  warehouse: { label: "Nhân viên kho", color: "bg-emerald-100 text-emerald-700" },
+const normalizeRoleName = (name?: string) => {
+  return name
+    ?.toLowerCase()
+    .replace(/[_-]/g, " ")   // _ hoặc - → space
+    .replace(/\s+/g, " ")    // nhiều space → 1 space
+    .trim()
 }
 
 export default function EmployeesPage() {
+  const { permissions } = usePermissions()
+  const { groups } = usePermissionGroups()
+  const { roles, updateRolePermissions, getRolePermissions } = useRoles()
+
   const [employees, setEmployees] = useState([
     {
       id: 1,
@@ -113,11 +125,27 @@ export default function EmployeesPage() {
   const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<any>(null)
   const [deletingEmployeeId, setDeletingEmployeeId] = useState<number | null>(null)
-  const [selectedRoleForPermissions, setSelectedRoleForPermissions] = useState<UserRole>("admin")
+  const [selectedRoleForPermissions, setSelectedRoleForPermissions] = useState<number | null>(null)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [statusChangeId, setStatusChangeId] = useState<number | null>(null)
   const [tempStatus, setTempStatus] = useState<string>("")
   const [openStatusPopoverId, setOpenStatusPopoverId] = useState<number | null>(null)
+  const [selectedPermissions, setSelectedPermissions] = useState<number[]>([])
+  const [alert, setAlert] = useState<{
+    type: "success" | "error"
+    message: string
+  } | null>(null)
+
+  useEffect(() => {
+    if (!alert) return
+
+    const timer = setTimeout(() => {
+      setAlert(null)
+    }, 5000) // 👈 5 giây
+
+    return () => clearTimeout(timer)
+  }, [alert])
+
 
   const handleEdit = (employee: any) => {
     setEditingEmployee(employee)
@@ -135,15 +163,61 @@ export default function EmployeesPage() {
     setEditingEmployee(null)
   }
 
-  const getRoleColor = (role: string) => {
-    const roleConfig = ROLES[role as keyof typeof ROLES]
-    return roleConfig ? roleConfig.color : "bg-gray-100 text-gray-700"
+  const getRoleLabel = (roleName: string) => {
+    return roleName
   }
 
-  const getRoleLabel = (role: string) => {
-    const roleConfig = ROLES[role as keyof typeof ROLES]
-    return roleConfig ? roleConfig.label : role
+  const getRoleColor = (roleName: string) => {
+    switch (roleName.toLowerCase()) {
+      case "Master Admin":
+        return "bg-red-100 text-red-700"
+      case "manager":
+        return "bg-blue-100 text-blue-700"
+      case "sales":
+        return "bg-green-100 text-green-700"
+      case "warehouse":
+        return "bg-yellow-100 text-yellow-700"
+      default:
+        return "bg-gray-100 text-gray-700"
+    }
   }
+
+  const roleList = roles
+
+  useEffect(() => {
+    if (roleList.length && selectedRoleForPermissions === null) {
+      setSelectedRoleForPermissions(roleList[0].id)
+    }
+  }, [roleList, selectedRoleForPermissions])
+
+  useEffect(() => {
+    if (!selectedRoleForPermissions) return
+
+    const rolePermIds = permissions
+      .filter(p => p.roles?.includes(String(selectedRoleForPermissions)))
+      .map(p => p.id)
+
+    setSelectedPermissions(rolePermIds)
+  }, [selectedRoleForPermissions, permissions])
+
+  useEffect(() => {
+    if (!selectedRoleForPermissions) return
+
+    const loadPermissions = async () => {
+      try {
+        const permissionIds = await getRolePermissions(
+          selectedRoleForPermissions
+        )
+        setSelectedPermissions(permissionIds)
+      } catch (err) {
+        console.error("Load role permissions failed", err)
+      }
+    }
+
+    loadPermissions()
+  }, [selectedRoleForPermissions])
+
+
 
   const handleStatusChange = (employeeId: number, currentStatus: string) => {
     setStatusChangeId(employeeId)
@@ -165,6 +239,11 @@ export default function EmployeesPage() {
     setStatusChangeId(null)
     setTempStatus("")
     setOpenStatusPopoverId(null)
+  }
+
+  const isMasterAdmin = (roleId: number | null) => {
+    const role = roleList.find(r => r.id === roleId)
+    return normalizeRoleName(role?.name) === "master admin"
   }
 
   return (
@@ -219,9 +298,9 @@ export default function EmployeesPage() {
               <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline">
+          {/* <Button variant="outline">
             <Filter className="h-4 w-4 mr-2" /> Bộ lọc
-          </Button>
+          </Button> */}
         </div>
 
         <div className="border rounded-lg bg-white overflow-hidden">
@@ -245,7 +324,7 @@ export default function EmployeesPage() {
                   <TableCell>
                     <div>
                       <div className="font-bold">{employee.name}</div>
-                      <div className="text-xs text-muted-foreground">Vào: {employee.joinDate}</div>
+                      <div className="text-xs text-muted-foreground">Username: {employee.joinDate}</div>
                     </div>
                   </TableCell>
                   <TableCell className="text-sm">{employee.email}</TableCell>
@@ -290,19 +369,17 @@ export default function EmployeesPage() {
                                 setTempStatus("active")
                                 setStatusChangeId(employee.id)
                               }}
-                              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all text-sm font-medium ${
-                                tempStatus === "active" && statusChangeId === employee.id
-                                  ? "bg-green-50 text-green-700 border border-green-200"
-                                  : "hover:bg-muted/60 text-foreground border border-transparent"
-                              }`}
+                              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all text-sm font-medium ${tempStatus === "active" && statusChangeId === employee.id
+                                ? "bg-green-50 text-green-700 border border-green-200"
+                                : "hover:bg-muted/60 text-foreground border border-transparent"
+                                }`}
                             >
                               <span className="flex items-center gap-2">
                                 <div
-                                  className={`w-2 h-2 rounded-full ${
-                                    tempStatus === "active" && statusChangeId === employee.id
-                                      ? "bg-green-600"
-                                      : "bg-muted-foreground/30"
-                                  }`}
+                                  className={`w-2 h-2 rounded-full ${tempStatus === "active" && statusChangeId === employee.id
+                                    ? "bg-green-600"
+                                    : "bg-muted-foreground/30"
+                                    }`}
                                 />
                                 Đang hoạt động
                               </span>
@@ -315,19 +392,17 @@ export default function EmployeesPage() {
                                 setTempStatus("inactive")
                                 setStatusChangeId(employee.id)
                               }}
-                              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all text-sm font-medium ${
-                                tempStatus === "inactive" && statusChangeId === employee.id
-                                  ? "bg-red-50 text-red-700 border border-red-200"
-                                  : "hover:bg-muted/60 text-foreground border border-transparent"
-                              }`}
+                              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all text-sm font-medium ${tempStatus === "inactive" && statusChangeId === employee.id
+                                ? "bg-red-50 text-red-700 border border-red-200"
+                                : "hover:bg-muted/60 text-foreground border border-transparent"
+                                }`}
                             >
                               <span className="flex items-center gap-2">
                                 <div
-                                  className={`w-2 h-2 rounded-full ${
-                                    tempStatus === "inactive" && statusChangeId === employee.id
-                                      ? "bg-red-600"
-                                      : "bg-muted-foreground/30"
-                                  }`}
+                                  className={`w-2 h-2 rounded-full ${tempStatus === "inactive" && statusChangeId === employee.id
+                                    ? "bg-red-600"
+                                    : "bg-muted-foreground/30"
+                                    }`}
                                 />
                                 Ngừng hoạt động
                               </span>
@@ -437,72 +512,171 @@ export default function EmployeesPage() {
           </DialogHeader>
 
           <div className="p-6 flex-1 overflow-hidden flex flex-col gap-6">
+            {alert && (
+              <Alert
+                className={
+                  alert.type === "success"
+                    ? "border-green-500 text-green-700"
+                    : "border-red-500 text-red-700"
+                }
+              >
+                <AlertTitle>
+                  {alert.type === "success" ? "Thành công" : "Lỗi"}
+                </AlertTitle>
+                <AlertDescription>{alert.message}</AlertDescription>
+              </Alert>
+            )}
             <Tabs
-              value={selectedRoleForPermissions}
-              onValueChange={(v) => setSelectedRoleForPermissions(v as UserRole)}
+              value={String(selectedRoleForPermissions)}
+              onValueChange={v => setSelectedRoleForPermissions(Number(v))}
             >
-              <TabsList className="grid grid-cols-4 w-full h-12">
-                <TabsTrigger value="admin">Quản trị</TabsTrigger>
-                <TabsTrigger value="manager">Quản lý</TabsTrigger>
-                <TabsTrigger value="sales">Bán hàng</TabsTrigger>
-                <TabsTrigger value="warehouse">Kho hàng</TabsTrigger>
+              <TabsList
+                className="grid w-full h-12"
+                style={{
+                  gridTemplateColumns: `repeat(${roleList.length}, minmax(0, 1fr))`,
+                }}
+              >
+                {roleList.map(role => (
+                  <TabsTrigger
+                    key={role.id}
+                    value={String(role.id)}
+                  >
+                    {role.name}
+                  </TabsTrigger>
+                ))}
               </TabsList>
 
               <ScrollArea className="h-[400px] mt-6 border rounded-lg p-4">
-                <div className="space-y-8">
-                  {["products", "orders", "employees", "reports", "settings"].map((category) => (
-                    <div key={category} className="space-y-4">
-                      <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground border-b pb-2">
-                        {category === "products"
-                          ? "Hàng hóa"
-                          : category === "orders"
-                            ? "Giao dịch"
-                            : category === "employees"
-                              ? "Nhân viên"
-                              : category === "reports"
-                                ? "Báo cáo"
-                                : "Hệ thống"}
-                      </h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        {ALL_PERMISSIONS.filter((p) => p.category === category).map((permission) => {
-                          const rolePerms = ROLE_PERMISSIONS.find((r) => r.role === selectedRoleForPermissions)
-                          const hasPerm = rolePerms?.permissions.some((p) => p.id === permission.id)
+                <div className="space-y-10">
+                  {groups.map(group => {
+                    const groupPermissions = permissions.filter(
+                      p => p.group_id === group.id
+                    )
 
-                          return (
-                            <div
-                              key={permission.id}
-                              className="flex items-start space-x-3 p-2 rounded hover:bg-muted/50 transition-colors"
-                            >
-                              <Checkbox
-                                id={permission.id}
-                                checked={hasPerm}
-                                disabled={selectedRoleForPermissions === "admin"}
-                              />
-                              <div className="grid gap-1.5 leading-none">
-                                <label
-                                  htmlFor={permission.id}
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                >
-                                  {permission.label}
-                                </label>
-                                <p className="text-xs text-muted-foreground">{permission.description}</p>
+                    if (groupPermissions.length === 0) return null
+
+                    return (
+                      <div key={group.id} className="space-y-4">
+                        {/* GROUP TITLE */}
+                        <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground border-b pb-2">
+                          {group.name}
+                        </h4>
+
+                        {/* PERMISSIONS */}
+                        <div className="grid grid-cols-2 gap-4">
+                          {groupPermissions.map(permission => {
+                            const isMaster = isMasterAdmin(selectedRoleForPermissions)
+
+                            const checked = isMaster
+                              ? true
+                              : selectedPermissions.includes(permission.id)
+
+                            return (
+                              <div
+                                key={permission.id}
+                                role="button"
+                                tabIndex={0}
+                                className={`flex items-start space-x-3 p-3 rounded-md cursor-pointer
+    hover:bg-muted/50
+    ${isMaster ? "cursor-not-allowed opacity-60" : ""}`}
+                                onClick={() => {
+                                  if (isMaster) return
+
+                                  setSelectedPermissions(prev =>
+                                    prev.includes(permission.id)
+                                      ? prev.filter(id => id !== permission.id)
+                                      : [...prev, permission.id]
+                                  )
+                                }}
+                                onKeyDown={(e) => {
+                                  if (isMaster) return
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault()
+                                    setSelectedPermissions(prev =>
+                                      prev.includes(permission.id)
+                                        ? prev.filter(id => id !== permission.id)
+                                        : [...prev, permission.id]
+                                    )
+                                  }
+                                }}
+                              >
+                                <Checkbox
+                                  checked={checked}
+                                  disabled={isMaster}
+                                  onCheckedChange={(val) => {
+                                    if (isMaster) return
+
+                                    setSelectedPermissions(prev =>
+                                      val
+                                        ? [...prev, permission.id]
+                                        : prev.filter(id => id !== permission.id)
+                                    )
+                                  }}
+                                />
+
+                                <div className="grid gap-1 leading-none">
+                                  <label className="text-sm font-medium select-none">
+                                    {permission.name}
+                                    <span className="ml-2 text-xs text-muted-foreground font-mono">
+                                      ({permission.code})
+                                    </span>
+                                  </label>
+
+                                  {permission.description && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {permission.description}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )
-                        })}
+                            )
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </ScrollArea>
             </Tabs>
           </div>
 
           <DialogFooter className="p-6 pt-0 gap-2">
-            <Button variant="outline" onClick={() => setIsPermissionsDialogOpen(false)}>
-              Đóng
+            <Button
+              variant="outline"
+              onClick={() => setIsPermissionsDialogOpen(false)}
+            >
+              Huỷ
             </Button>
-            <Button className="bg-primary" disabled={selectedRoleForPermissions === "admin"}>
+
+            <Button
+              className="bg-primary"
+              disabled={
+                selectedRoleForPermissions === null ||
+                isMasterAdmin(selectedRoleForPermissions)
+              }
+              onClick={async () => {
+                if (!selectedRoleForPermissions) return
+
+                try {
+                  await updateRolePermissions(
+                    selectedRoleForPermissions,
+                    {
+                      permission_ids: selectedPermissions,
+                    }
+                  )
+
+                  setAlert({
+                    type: "success",
+                    message: "Cập nhật quyền thành công",
+                  })
+                } catch (err) {
+                  setAlert({
+                    type: "error",
+                    message: "Cập nhật thất bại, vui lòng thử lại",
+                  })
+                }
+              }}
+            >
               Lưu thay đổi
             </Button>
           </DialogFooter>

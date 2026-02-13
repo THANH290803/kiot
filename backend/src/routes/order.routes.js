@@ -146,7 +146,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /orders:
+ * /api/orders:
  *   post:
  *     summary: Create new order with order items
  *     tags: [Orders]
@@ -174,7 +174,7 @@ router.post("/", authMiddleware, orderController.create);
 
 /**
  * @swagger
- * /orders:
+ * /api/orders:
  *   get:
  *     summary: Get all orders (DESC, soft-delete filtered). Search by order_code, filter by customer name and status.
  *     tags: [Orders]
@@ -237,7 +237,7 @@ router.get("/", authMiddleware, orderController.findAll);
 
 /**
  * @swagger
- * /orders/{id}:
+ * /api/orders/{id}:
  *   get:
  *     summary: Get order by ID
  *     tags: [Orders]
@@ -264,7 +264,7 @@ router.get("/:id", authMiddleware, orderController.findOne);
 
 /**
  * @swagger
- * /orders/{id}:
+ * /api/orders/{id}:
  *   patch:
  *     summary: Update order
  *     tags: [Orders]
@@ -297,7 +297,7 @@ router.patch("/:id", authMiddleware, orderController.update);
 
 /**
  * @swagger
- * /orders/{id}:
+ * /api/orders/{id}:
  *   delete:
  *     summary: Soft delete order
  *     tags: [Orders]

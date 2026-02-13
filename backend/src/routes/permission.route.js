@@ -8,60 +8,66 @@ const router = express.Router();
  * @swagger
  * tags:
  *   name: Permissions
- *   description: Permission management
+ *   description: Quản lý quyền (Permissions)
  */
 
 /**
  * @swagger
  * components:
- *   schemas:
- *     PermissionGroup:
- *       type: object
- *       properties:
- *         id:
- *           type: integer
- *         name:
- *           type: string
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
  *
+ *   schemas:
  *     Permission:
  *       type: object
  *       properties:
  *         id:
  *           type: integer
+ *         code:
+ *           type: string
  *         name:
  *           type: string
  *         description:
  *           type: string
  *         group_id:
  *           type: integer
- *         deleted_at:
- *           type: string
- *           nullable: true
+ *         group:
+ *           type: object
+ *           properties:
+ *             id:
+ *               type: integer
+ *             name:
+ *               type: string
  *         created_at:
  *           type: string
+ *           format: date-time
  *         updated_at:
  *           type: string
- *         group:
- *           $ref: '#/components/schemas/PermissionGroup'
+ *           format: date-time
  */
 
 /**
  * @swagger
  * /api/permissions:
  *   get:
- *     summary: Get all permissions (DESC)
+ *     summary: Lấy danh sách quyền
  *     tags: [Permissions]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of permissions
+ *         description: Danh sách quyền
  *         content:
  *           application/json:
  *             schema:
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/Permission'
+ *       500:
+ *         description: Lỗi server
  */
 router.get("/", authMiddleware, permissionController.findAll);
 
@@ -69,7 +75,7 @@ router.get("/", authMiddleware, permissionController.findAll);
  * @swagger
  * /api/permissions/{id}:
  *   get:
- *     summary: Get permission by ID
+ *     summary: Lấy quyền theo ID
  *     tags: [Permissions]
  *     security:
  *       - bearerAuth: []
@@ -79,15 +85,18 @@ router.get("/", authMiddleware, permissionController.findAll);
  *         required: true
  *         schema:
  *           type: integer
+ *         description: ID của permission
  *     responses:
  *       200:
- *         description: Permission detail
+ *         description: Thông tin quyền
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Permission'
  *       404:
- *         description: Permission not found
+ *         description: Không tìm thấy quyền
+ *       500:
+ *         description: Lỗi server
  */
 router.get("/:id", authMiddleware, permissionController.findOne);
 
@@ -95,7 +104,7 @@ router.get("/:id", authMiddleware, permissionController.findOne);
  * @swagger
  * /api/permissions:
  *   post:
- *     summary: Create permission
+ *     summary: Tạo quyền mới
  *     tags: [Permissions]
  *     security:
  *       - bearerAuth: []
@@ -106,9 +115,12 @@ router.get("/:id", authMiddleware, permissionController.findOne);
  *           schema:
  *             type: object
  *             required:
+ *               - code
  *               - name
  *               - group_id
  *             properties:
+ *               code:
+ *                 type: string
  *               name:
  *                 type: string
  *               description:
@@ -117,11 +129,15 @@ router.get("/:id", authMiddleware, permissionController.findOne);
  *                 type: integer
  *     responses:
  *       201:
- *         description: Permission created
+ *         description: Tạo quyền thành công
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Permission'
+ *       400:
+ *         description: Dữ liệu không hợp lệ
+ *       500:
+ *         description: Lỗi server
  */
 router.post("/", authMiddleware, permissionController.create);
 
@@ -129,7 +145,7 @@ router.post("/", authMiddleware, permissionController.create);
  * @swagger
  * /api/permissions/{id}:
  *   patch:
- *     summary: Update permission
+ *     summary: Cập nhật quyền
  *     tags: [Permissions]
  *     security:
  *       - bearerAuth: []
@@ -139,6 +155,7 @@ router.post("/", authMiddleware, permissionController.create);
  *         required: true
  *         schema:
  *           type: integer
+ *         description: ID của permission
  *     requestBody:
  *       required: true
  *       content:
@@ -146,6 +163,8 @@ router.post("/", authMiddleware, permissionController.create);
  *           schema:
  *             type: object
  *             properties:
+ *               code:
+ *                 type: string
  *               name:
  *                 type: string
  *               description:
@@ -154,13 +173,11 @@ router.post("/", authMiddleware, permissionController.create);
  *                 type: integer
  *     responses:
  *       200:
- *         description: Permission updated
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Permission'
+ *         description: Cập nhật thành công
  *       404:
- *         description: Permission not found
+ *         description: Không tìm thấy quyền
+ *       500:
+ *         description: Lỗi server
  */
 router.patch("/:id", authMiddleware, permissionController.update);
 
@@ -168,7 +185,7 @@ router.patch("/:id", authMiddleware, permissionController.update);
  * @swagger
  * /api/permissions/{id}:
  *   delete:
- *     summary: Soft delete permission
+ *     summary: Xoá mềm quyền
  *     tags: [Permissions]
  *     security:
  *       - bearerAuth: []
@@ -178,11 +195,14 @@ router.patch("/:id", authMiddleware, permissionController.update);
  *         required: true
  *         schema:
  *           type: integer
+ *         description: ID của permission
  *     responses:
  *       200:
- *         description: Permission deleted successfully
+ *         description: Xoá quyền thành công
  *       404:
- *         description: Permission not found
+ *         description: Không tìm thấy quyền
+ *       500:
+ *         description: Lỗi server
  */
 router.delete("/:id", authMiddleware, permissionController.delete);
 

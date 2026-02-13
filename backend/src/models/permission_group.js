@@ -22,5 +22,12 @@ module.exports = (sequelize, DataTypes) => {
     }
   );
 
+  // ✅ ĐÚNG CHỖ
+  PermissionGroup.associate = (models) => {
+    PermissionGroup.hasMany(models.Permission, {
+      foreignKey: "group_id",
+      as: "permissions",
+    });
+  };
   return PermissionGroup;
 };

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Search, MoreVertical, Edit, Trash2, Lock, ChevronLeft, ChevronRight, Check } from "lucide-react"
+import { Plus, Search, MoreVertical, Edit, Trash2, Lock, ChevronLeft, ChevronRight, Check, ChevronsUpDown } from "lucide-react"
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -28,109 +28,148 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
+
+import { usePermissionGroups } from "@/hooks/usePermissionGroups"
+import { usePermissions } from "@/hooks/usePermissions"
+
+
+function GroupSelector({
+  name,
+  defaultValue,
+  groups,
+}: {
+  name: string
+  defaultValue?: number
+  groups: { id: number; name: string }[]
+}) {
+  const [open, setOpen] = useState(false)
+  const [value, setValue] = useState<number | undefined>(defaultValue)
+
+  return (
+    <>
+      <input type="hidden" name={name} value={value ?? ""} />
+
+      <Popover open={open} onOpenChange={setOpen} modal={false}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="w-full justify-between">
+            {groups.find(g => g.id === value)?.name || "Chọn nhóm..."}
+            <ChevronsUpDown className="h-4 w-4 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+
+        <PopoverContent
+          className="w-[var(--radix-popover-trigger-width)] p-0"
+          sideOffset={4}
+          onWheelCapture={e => e.stopPropagation()}
+        >
+          <Command>
+            <CommandInput placeholder="Tìm kiếm nhóm..." />
+
+            <CommandList className="max-h-60 overflow-y-auto no-scrollbar">
+              <CommandGroup>
+                {groups.map(group => (
+                  <CommandItem
+                    key={group.id}
+                    onSelect={() => {
+                      setValue(group.id)
+                      setOpen(false)
+                    }}
+                  >
+                    {group.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </>
+  )
+}
 
 export default function PermissionsPage() {
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const {
+    permissions,
+    paginatedPermissions,
+
+    page,
+    setPage,
+    rowsPerPage,
+    setRowsPerPage,
+    totalPages,
+
+    selectedIds,
+    toggleSelect,
+    toggleSelectAll,
+
+    createPermission,
+    updatePermission,
+    deletePermission,
+    assignGroupToSelected,
+    clearSelection,
+  } = usePermissions()
+
+  const { groups } = usePermissionGroups()
+
+  const [isAddOpen, setIsAddOpen] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [editingPermission, setEditingPermission] = useState<any>(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
-  const [selectedPermissions, setSelectedPermissions] = useState<number[]>([])
   const [isAssignGroupDialogOpen, setIsAssignGroupDialogOpen] = useState(false)
-  const [selectedGroup, setSelectedGroup] = useState("")
+  const [selectedGroup, setSelectedGroup] = useState<number | null>(null)
 
-  const [permissions, setPermissions] = useState([
-    { id: 1, code: "create_user", name: "Tạo người dùng", description: "Có quyền tạo người dùng mới", group: "Quản lý người dùng" },
-    { id: 2, code: "edit_user", name: "Sửa người dùng", description: "Có quyền chỉnh sửa thông tin người dùng", group: "Quản lý người dùng" },
-    { id: 3, code: "delete_user", name: "Xóa người dùng", description: "Có quyền xóa người dùng", group: "Quản lý người dùng" },
-    { id: 4, code: "view_user", name: "Xem người dùng", description: "Có quyền xem danh sách và chi tiết người dùng", group: "Quản lý người dùng" },
-    { id: 5, code: "create_product", name: "Tạo sản phẩm", description: "Có quyền tạo sản phẩm mới", group: "Quản lý sản phẩm" },
-    { id: 6, code: "edit_product", name: "Sửa sản phẩm", description: "Có quyền chỉnh sửa sản phẩm", group: "Quản lý sản phẩm" },
-    { id: 7, code: "delete_product", name: "Xóa sản phẩm", description: "Có quyền xóa sản phẩm", group: "Quản lý sản phẩm" },
-    { id: 8, code: "create_order", name: "Tạo đơn hàng", description: "Có quyền tạo đơn hàng mới", group: "Quản lý bán hàng" },
-  ])
 
-  const totalPages = Math.ceil(permissions.length / rowsPerPage)
-  const startIdx = (currentPage - 1) * rowsPerPage
-  const displayedPermissions = permissions.slice(startIdx, startIdx + rowsPerPage)
-
-  const handleAddPermission = (e: React.FormEvent) => {
+  /* ================= HANDLERS ================= */
+  const handleAdd = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const formData = new FormData(e.currentTarget as HTMLFormElement)
-    const newPermission = {
-      id: Math.max(...permissions.map(p => p.id), 0) + 1,
-      code: (formData.get("code") as string).toLowerCase(),
-      name: formData.get("name") as string,
-      description: formData.get("description") as string,
-      group: formData.get("group") as string,
-    }
-    setPermissions([...permissions, newPermission])
-    setIsAddDialogOpen(false)
+    const form = new FormData(e.currentTarget)
+
+    await createPermission({
+      code: form.get("code") as string,
+      name: form.get("name") as string,
+      description: form.get("description") as string,
+      group_id: Number(form.get("group_id")),
+    })
+
+    setIsAddOpen(false)
   }
 
-  const handleEditPermission = (e: React.FormEvent) => {
+  const handleEdit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const formData = new FormData(e.currentTarget as HTMLFormElement)
-    setPermissions(
-      permissions.map(p =>
-        p.id === editingPermission.id
-          ? {
-              ...p,
-              code: (formData.get("code") as string).toLowerCase(),
-              name: formData.get("name") as string,
-              description: formData.get("description") as string,
-              group: formData.get("group") as string,
-            }
-          : p
-      )
-    )
-    setIsEditDialogOpen(false)
+    const form = new FormData(e.currentTarget)
+
+    await updatePermission(editingPermission.id, {
+      code: form.get("code") as string,
+      name: form.get("name") as string,
+      description: form.get("description") as string,
+      group_id: Number(form.get("group_id")),
+    })
+
+    setIsEditOpen(false)
     setEditingPermission(null)
   }
 
-  const handleDeletePermission = () => {
-    setPermissions(permissions.filter(p => p.id !== editingPermission.id))
-    setIsDeleteDialogOpen(false)
+  const handleDelete = async () => {
+    await deletePermission(editingPermission.id)
+    setIsDeleteOpen(false)
     setEditingPermission(null)
   }
 
-  const togglePermissionSelection = (id: number) => {
-    setSelectedPermissions(prev =>
-      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-    )
+  const handleAssignGroupToSelected = async () => {
+    if (!selectedGroup) return
+
+    await assignGroupToSelected(selectedGroup)
+
+    setSelectedGroup(null)
+    setIsAssignGroupDialogOpen(false)
   }
 
-  const toggleSelectAll = () => {
-    if (selectedPermissions.length === displayedPermissions.length) {
-      setSelectedPermissions([])
-    } else {
-      setSelectedPermissions(displayedPermissions.map(p => p.id))
-    }
-  }
-
-  const handleAssignGroupToSelected = () => {
-    if (selectedGroup && selectedPermissions.length > 0) {
-      setPermissions(
-        permissions.map(p =>
-          selectedPermissions.includes(p.id) ? { ...p, group: selectedGroup } : p
-        )
-      )
-      setSelectedPermissions([])
-      setSelectedGroup("")
-      setIsAssignGroupDialogOpen(false)
-    }
-  }
-
-  const groupColors: Record<string, string> = {
-    "Quản lý người dùng": "bg-blue-100 text-blue-700",
-    "Quản lý sản phẩm": "bg-purple-100 text-purple-700",
-    "Quản lý bán hàng": "bg-green-100 text-green-700",
-    "Quản lý báo cáo": "bg-orange-100 text-orange-700",
-    "Quản lý cửa hàng": "bg-red-100 text-red-700",
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -138,10 +177,10 @@ export default function PermissionsPage() {
       <main className="container mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Quyền Hạn</h1>
-            <p className="text-sm text-muted-foreground">Quản lý các quyền hạn của hệ thống</p>
+            <h1 className="text-3xl font-bold text-foreground">Quyền Hạn</h1>
+            <p className="text-muted-foreground mt-1">Quản lý các quyền hạn của hệ thống</p>
           </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2 bg-primary hover:bg-primary/90">
                 <Plus className="h-4 w-4" />
@@ -152,7 +191,7 @@ export default function PermissionsPage() {
               <DialogHeader>
                 <DialogTitle>Thêm Quyền Hạn Mới</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleAddPermission} className="space-y-4">
+              <form onSubmit={handleAdd} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="code">Mã quyền hạn</Label>
                   <Input id="code" name="code" placeholder="create_user" required />
@@ -167,21 +206,13 @@ export default function PermissionsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="group">Nhóm quyền hạn</Label>
-                  <Select name="group" defaultValue="Quản lý người dùng">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Quản lý người dùng">Quản lý người dùng</SelectItem>
-                      <SelectItem value="Quản lý sản phẩm">Quản lý sản phẩm</SelectItem>
-                      <SelectItem value="Quản lý bán hàng">Quản lý bán hàng</SelectItem>
-                      <SelectItem value="Quản lý báo cáo">Quản lý báo cáo</SelectItem>
-                      <SelectItem value="Quản lý cửa hàng">Quản lý cửa hàng</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <GroupSelector
+                    name="group_id"
+                    groups={groups}
+                  />
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  <Button variant="outline" onClick={() => setIsAddOpen(false)}>
                     Hủy
                   </Button>
                   <Button type="submit" className="bg-primary hover:bg-primary/90">
@@ -207,40 +238,88 @@ export default function PermissionsPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {selectedPermissions.length > 0 && (
+            {selectedIds.length > 0 && (
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
                 <span className="text-sm font-medium text-blue-700">
-                  Đã chọn {selectedPermissions.length} quyền hạn
+                  Đã chọn {selectedIds.length} quyền hạn
                 </span>
-                <Dialog open={isAssignGroupDialogOpen} onOpenChange={setIsAssignGroupDialogOpen}>
+
+                <Dialog
+                  open={isAssignGroupDialogOpen}
+                  onOpenChange={setIsAssignGroupDialogOpen}
+                >
                   <DialogTrigger asChild>
                     <Button size="sm" className="bg-primary hover:bg-primary/90">
                       Gán Nhóm
                     </Button>
                   </DialogTrigger>
+
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Gán Nhóm cho Quyền Hạn</DialogTitle>
                     </DialogHeader>
+
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="group-select">Chọn nhóm quyền hạn</Label>
-                        <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Chọn nhóm..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Quản lý người dùng">Quản lý người dùng</SelectItem>
-                            <SelectItem value="Quản lý sản phẩm">Quản lý sản phẩm</SelectItem>
-                            <SelectItem value="Quản lý bán hàng">Quản lý bán hàng</SelectItem>
-                            <SelectItem value="Quản lý báo cáo">Quản lý báo cáo</SelectItem>
-                            <SelectItem value="Quản lý cửa hàng">Quản lý cửa hàng</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Label>Chọn nhóm quyền hạn</Label>
+
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between"
+                            >
+                              {groups.find(g => g.id === selectedGroup)?.name ||
+                                "Chọn nhóm..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+
+                          <PopoverContent
+                            className="w-[var(--radix-popover-trigger-width)] p-0"
+                            side="bottom"
+                            align="start"
+                          >
+                            <Command>
+                              <CommandInput placeholder="Tìm kiếm nhóm..." />
+                              <CommandEmpty>Không tìm thấy nhóm.</CommandEmpty>
+
+                              {/* ✅ SCROLL CHUẨN MAC */}
+                              <ScrollArea className="h-60">
+                                <CommandList>
+                                  <CommandGroup>
+                                    {groups.map(group => (
+                                      <CommandItem
+                                        key={group.id}
+                                        value={group.name}
+                                        onSelect={() => setSelectedGroup(group.id)}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            selectedGroup === group.id
+                                              ? "opacity-100"
+                                              : "opacity-0"
+                                          )}
+                                        />
+                                        {group.name}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </ScrollArea>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     </div>
+
                     <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsAssignGroupDialogOpen(false)}>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsAssignGroupDialogOpen(false)}
+                      >
                         Hủy
                       </Button>
                       <Button
@@ -260,7 +339,10 @@ export default function PermissionsPage() {
                 <TableRow>
                   <TableHead className="w-12">
                     <Checkbox
-                      checked={selectedPermissions.length === displayedPermissions.length && displayedPermissions.length > 0}
+                      checked={
+                        selectedIds.length === paginatedPermissions.length &&
+                        paginatedPermissions.length > 0
+                      }
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
@@ -272,67 +354,85 @@ export default function PermissionsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {displayedPermissions.map(permission => (
-                  <TableRow
-                    key={permission.id}
-                    className={selectedPermissions.includes(permission.id) ? "bg-blue-50" : ""}
-                  >
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedPermissions.includes(permission.id)}
-                        onCheckedChange={() => togglePermissionSelection(permission.id)}
-                      />
-                    </TableCell>
-                    <TableCell className="font-mono font-medium text-sm">{permission.code}</TableCell>
-                    <TableCell className="font-medium">{permission.name}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{permission.description}</TableCell>
-                    <TableCell>
-                      <Badge className={groupColors[permission.group]}>
-                        {permission.group}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setEditingPermission(permission)
-                              setIsEditDialogOpen(true)
-                            }}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Sửa
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => {
-                              setEditingPermission(permission)
-                              setIsDeleteDialogOpen(true)
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Xóa
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                {paginatedPermissions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                      Không có quyền hạn
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  paginatedPermissions.map(p => (
+                    <TableRow key={p.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.includes(p.id)}
+                          onCheckedChange={() => toggleSelect(p.id)}
+                        />
+                      </TableCell>
+                      <TableCell className="font-mono font-medium text-sm">{p.code}</TableCell>
+
+                      <TableCell className="font-medium">{p.name}</TableCell>
+
+                      <TableCell className="text-muted-foreground max-w-[320px] break-words">
+                        {p.description || "-"}
+                      </TableCell>
+
+                      <TableCell>
+                        {p.group?.name ? (
+                          <Badge variant="outline">{p.group.name}</Badge>
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setEditingPermission(p)
+                                setIsEditOpen(true)
+                              }}
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Sửa
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => {
+                                setEditingPermission(p)
+                                setIsDeleteOpen(true)
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Xóa
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
 
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-t pt-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm">Hiển thị</span>
-                <Select value={rowsPerPage.toString()} onValueChange={val => {
-                  setRowsPerPage(parseInt(val))
-                  setCurrentPage(1)
-                }}>
+            <div className="flex items-center justify-between border-t pt-4">
+              <div className="flex items-center gap-2 text-sm">
+                Hiển thị
+                <Select
+                  value={rowsPerPage.toString()}
+                  onValueChange={v => {
+                    setRowsPerPage(Number(v))
+                    setPage(1)
+                  }}
+                >
                   <SelectTrigger className="w-20">
                     <SelectValue />
                   </SelectTrigger>
@@ -340,30 +440,33 @@ export default function PermissionsPage() {
                     <SelectItem value="10">10</SelectItem>
                     <SelectItem value="25">25</SelectItem>
                     <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="50">100</SelectItem>
                   </SelectContent>
                 </Select>
-                <span className="text-sm">bản ghi</span>
-                <span className="text-sm text-muted-foreground">Tổng số: {permissions.length}</span>
+                bản ghi <span>Tổng số: {permissions.length}</span>
               </div>
+
+
               <div className="flex items-center gap-4">
                 <Button
-                  variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className="gap-1"
+                  variant="outline"
+                  disabled={page === 1}
+                  onClick={() => setPage(page - 1)}
                 >
                   <ChevronLeft className="h-4 w-4" />
                   Previous
                 </Button>
-                <span className="text-sm font-medium">{currentPage}</span>
+
+                <span className="text-sm font-medium">
+                  {page} / {totalPages}
+                </span>
+
                 <Button
-                  variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                  className="gap-1"
+                  variant="outline"
+                  disabled={page === totalPages}
+                  onClick={() => setPage(page + 1)}
                 >
                   Next
                   <ChevronRight className="h-4 w-4" />
@@ -374,17 +477,19 @@ export default function PermissionsPage() {
         </Card>
       </main>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Sửa Quyền Hạn</DialogTitle>
+            <DialogTitle>Sửa quyền hạn</DialogTitle>
           </DialogHeader>
+
           {editingPermission && (
-            <form onSubmit={handleEditPermission} className="space-y-4">
+            <form onSubmit={handleEdit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-code">Mã quyền hạn</Label>
-                <Input id="edit-code" name="code" defaultValue={editingPermission.code} />
+                <Input id="edit-code" name="code" defaultValue={editingPermission.code} readOnly />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Tên quyền hạn</Label>
                 <Input id="edit-name" name="name" defaultValue={editingPermission.name} />
@@ -395,43 +500,39 @@ export default function PermissionsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-group">Nhóm quyền hạn</Label>
-                <Select name="group" defaultValue={editingPermission.group}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Quản lý người dùng">Quản lý người dùng</SelectItem>
-                    <SelectItem value="Quản lý sản phẩm">Quản lý sản phẩm</SelectItem>
-                    <SelectItem value="Quản lý bán hàng">Quản lý bán hàng</SelectItem>
-                    <SelectItem value="Quản lý báo cáo">Quản lý báo cáo</SelectItem>
-                    <SelectItem value="Quản lý cửa hàng">Quản lý cửa hàng</SelectItem>
-                  </SelectContent>
-                </Select>
+                <GroupSelector
+                  name="group_id"
+                  defaultValue={editingPermission.group_id}
+                  groups={groups}
+                />
               </div>
+
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                <Button variant="outline" onClick={() => setIsEditOpen(false)}>
                   Hủy
                 </Button>
-                <Button type="submit" className="bg-primary hover:bg-primary/90">
-                  Lưu
-                </Button>
+                <Button type="submit">Lưu</Button>
               </DialogFooter>
             </form>
           )}
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xóa Quyền Hạn</AlertDialogTitle>
+            <AlertDialogTitle>Xóa quyền hạn</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc chắn muốn xóa quyền hạn "{editingPermission?.name}"? Hành động này không thể hoàn tác.
+              Bạn có chắc chắn muốn xóa quyền này?
             </AlertDialogDescription>
           </AlertDialogHeader>
+
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeletePermission} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={handleDelete}
+            >
               Xóa
             </AlertDialogAction>
           </AlertDialogFooter>
