@@ -2,6 +2,7 @@ const db = require("../models");
 const { Op } = require("sequelize");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const ExcelJS = require("exceljs");
 
 const User = db.User;
 const Role = db.Role;
@@ -242,6 +243,78 @@ const changeUserStatus = async (req, res) => {
   }
 };
 
+// ===== EXPORT USERS TO EXCEL =====
+// ===== EXPORT USERS TO EXCEL =====
+const exportUsersExcel = async (req, res) => {
+  try {
+    const { role_id, status, name } = req.query;
+
+    const where = {};
+    const include = [{ model: Role, as: "role", attributes: ["id", "name"] }];
+
+    if (role_id) where.role_id = role_id;
+    if (status !== undefined) where.status = status;
+    if (name) where.name = { [Op.like]: `%${name}%` };
+
+    const users = await User.findAll({
+      where,
+      include,
+      order: [["id", "DESC"]],
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Danh sách người dùng");
+
+    // ===== HEADER TIẾNG VIỆT =====
+    worksheet.columns = [
+      { header: "ID", key: "id", width: 10 },
+      { header: "Mã nhân viên", key: "employee_code", width: 20 },
+      { header: "Tên đăng nhập", key: "username", width: 20 },
+      { header: "Họ và tên", key: "name", width: 25 },
+      { header: "Email", key: "email", width: 30 },
+      { header: "Số điện thoại", key: "phone_number", width: 20 },
+      { header: "Địa chỉ", key: "address", width: 30 },
+      { header: "Vai trò", key: "role", width: 20 },
+      { header: "Trạng thái", key: "status", width: 18 },
+      { header: "Ngày tạo", key: "created_at", width: 25 },
+    ];
+
+    // In đậm header
+    worksheet.getRow(1).eachCell((cell) => {
+      cell.font = { bold: true };
+    });
+
+    // ===== DATA =====
+    users.forEach((user) => {
+      worksheet.addRow({
+        id: user.id,
+        employee_code: user.employee_code,
+        username: user.username,
+        name: user.name,
+        email: user.email,
+        phone_number: user.phone_number,
+        address: user.address,
+        role: user.role ? user.role.name : "",
+        status: user.status === 1 ? "Hoạt động" : "Ngừng hoạt động",
+        created_at: user.created_at,
+      });
+    });
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=danh_sach_nguoi_dung.xlsx"
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 
 // ===== EXPORT =====
 module.exports = {
@@ -251,4 +324,5 @@ module.exports = {
   updateUser,
   deleteUser,
   changeUserStatus,
+  exportUsersExcel
 };

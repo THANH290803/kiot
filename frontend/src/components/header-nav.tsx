@@ -150,7 +150,9 @@ export function HeaderNav() {
                     <User className="h-4 w-4 mr-2" /> Hồ sơ cá nhân
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive focus:text-destructive">
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-destructive focus:text-destructive">
                   <LogOut className="h-4 w-4 mr-2" /> Đăng xuất
                 </DropdownMenuItem>
               </DropdownMenuContent>

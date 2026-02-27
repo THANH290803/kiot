@@ -340,5 +340,52 @@ router.delete("/:id", authMiddleware, userController.deleteUser);
  */
 router.patch("/:id/status", authMiddleware, userController.changeUserStatus);
 
+/**
+ * @swagger
+ * /api/users/export/excel:
+ *   get:
+ *     summary: Xuất danh sách người dùng ra file Excel
+ *     description: |
+ *       Xuất danh sách người dùng ra file Excel (.xlsx).
+ *       Có thể lọc theo role, trạng thái hoặc tìm kiếm theo tên.
+ *       Tên cột trong file Excel hiển thị bằng tiếng Việt.
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: name
+ *         schema:
+ *           type: string
+ *         description: Tìm kiếm theo tên người dùng
+ *       - in: query
+ *         name: role_id
+ *         schema:
+ *           type: integer
+ *         description: Lọc theo role ID
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: integer
+ *         description: Trạng thái (1 = hoạt động, 2 = ngừng hoạt động)
+ *     responses:
+ *       200:
+ *         description: Xuất file Excel thành công
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get(
+    "/export/excel",
+    authMiddleware,
+    userController.exportUsersExcel
+);
+
 
 module.exports = router;
