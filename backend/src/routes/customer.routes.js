@@ -48,7 +48,7 @@ const router = express.Router();
  * @swagger
  * /api/customers:
  *   get:
- *     summary: Get all customers (DESC). Search by name or email, pagination.
+ *     summary: Get all customers (search + pagination)
  *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
@@ -57,49 +57,20 @@ const router = express.Router();
  *         name: keyword
  *         schema:
  *           type: string
- *         description: Search by customer name or email (LIKE)
- *
+ *         description: Search by name or email
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
  *           default: 1
- *         description: Page number
- *
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           default: 10
- *         description: Rows per page
- *
  *     responses:
  *       200:
- *         description: Customer list with pagination
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 customers:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Customer'
- *                 pagination:
- *                   type: object
- *                   properties:
- *                     total:
- *                       type: integer
- *                       example: 50
- *                     page:
- *                       type: integer
- *                       example: 1
- *                     limit:
- *                       type: integer
- *                       example: 10
- *                     totalPages:
- *                       type: integer
- *                       example: 5
+ *         description: Customer list
  */
 router.get("/", authMiddleware, customerController.findAll);
 
@@ -107,7 +78,7 @@ router.get("/", authMiddleware, customerController.findAll);
  * @swagger
  * /api/customers/{id}:
  *   get:
- *     summary: Get customer by ID
+ *     summary: Get customer detail
  *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
@@ -129,7 +100,7 @@ router.get("/:id", authMiddleware, customerController.findOne);
  * @swagger
  * /api/customers:
  *   post:
- *     summary: Create customer (password will be hashed)
+ *     summary: Create new customer
  *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
@@ -164,7 +135,7 @@ router.post("/", authMiddleware, customerController.create);
  * @swagger
  * /api/customers/{id}:
  *   patch:
- *     summary: Update customer (if password provided, will be re-hashed)
+ *     summary: Update customer
  *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
@@ -175,7 +146,6 @@ router.post("/", authMiddleware, customerController.create);
  *         schema:
  *           type: integer
  *     requestBody:
- *       required: true
  *       content:
  *         application/json:
  *           schema:
