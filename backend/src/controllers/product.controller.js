@@ -315,3 +315,180 @@ exports.createProductWithVariants = async (req, res) => {
     return res.status(500).json({ message: e.message });
   }
 };
+
+exports.getAllProductsWithVariants = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      name,
+      category_id,
+      brand_id,
+      status
+    } = req.query;
+
+    const where = {
+      deleted_at: null
+    };
+
+    if (name) {
+      where.name = {
+        [Op.like]: `%${name}%`
+      };
+    }
+
+    if (category_id) {
+      where.category_id = category_id;
+    }
+
+    if (brand_id) {
+      where.brand_id = brand_id;
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    const offset = (page - 1) * limit;
+
+    const { count, rows } = await Product.findAndCountAll({
+      where,
+
+      include: [
+        {
+          model: Category,
+          as: "category",
+          attributes: ["id", "name"]
+        },
+        {
+          model: Brand,
+          as: "brand",
+          attributes: ["id", "name"]
+        },
+        {
+          model: ProductVariant,
+          as: "variants",
+          required: false,
+          where: {
+            [Op.or]: [
+              { deleted_at: null },
+              { deleted_at: { [Op.is]: null } }
+            ]
+          },
+          include: [
+            {
+              model: db.Color,
+              as: "color",
+              attributes: ["id", "name"],
+              required: false
+            },
+            {
+              model: db.Size,
+              as: "size",
+              attributes: ["id", "name"],
+              required: false
+            },
+            {
+              model: db.Image,
+              as: "images",
+              attributes: ["id", "url", "is_primary", "sort_order"],
+              required: false,
+              where: {
+                [Op.or]: [
+                  { deleted_at: null },
+                  { deleted_at: { [Op.is]: null } }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+
+      order: [["id", "DESC"]]
+    });
+
+    return res.status(200).json({
+      data: rows,
+      pagination: {
+        total: count,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total_pages: Math.ceil(count / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: error.message
+    });
+  }
+};
+
+exports.getProductDetailsWithVariants = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findOne({
+      where: {
+        id,
+        deleted_at: null,
+      },
+
+      include: [
+        {
+          model: Category,
+          as: "category",
+          attributes: ["id", "name"],
+        },
+        {
+          model: Brand,
+          as: "brand",
+          attributes: ["id", "name"],
+        },
+
+        {
+          model: ProductVariant,
+          as: "variants",
+          where: { deleted_at: null },
+          required: false,
+
+          include: [
+            {
+              model: db.Color,
+              as: "color",
+              attributes: ["id", "name"],
+            },
+            {
+              model: db.Size,
+              as: "size",
+              attributes: ["id", "name"],
+            },
+            {
+              model: db.Image,
+              as: "images",
+              attributes: ["id", "url", "is_primary", "sort_order"],
+              where: { deleted_at: null },
+              required: false,
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!product) {
+      return res.status(404).json({
+        message: "Product not found",
+      });
+    }
+
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};

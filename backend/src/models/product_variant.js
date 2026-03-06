@@ -72,6 +72,10 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "size_id",
       as: "size",
     });
+   ProductVariant.hasMany(models.Image, {
+      foreignKey: "variant_id",
+      as: "images",
+   });
   };
 
   return ProductVariant;
