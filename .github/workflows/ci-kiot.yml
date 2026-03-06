@@ -1,0 +1,118 @@
+name: KIOT CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  BACKEND_URL: "https://kiot-7o5h.onrender.com"
+  FRONTEND_URL: "https://kiot-blush.vercel.app"
+
+jobs:
+
+  # =========================
+  # BUILD PROJECT
+  # =========================
+
+  build:
+    name: Build Project
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install backend deps
+        run: npm install --workspace=backend
+
+      - name: Install frontend deps
+        run: npm install --workspace=frontend
+
+      - name: Run backend tests
+        run: npm run test --workspace=backend
+
+      - name: Build frontend
+        run: npm run build --workspace=frontend
+
+
+  # =========================
+  # CHECK BACKEND
+  # =========================
+
+  check-backend:
+    name: Check Render Backend
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Wait for Render deploy
+        run: sleep 90
+
+      - name: Check backend health
+        run: |
+          RESPONSE=$(curl -s $BACKEND_URL/health || true)
+
+          echo "Backend response:"
+          echo $RESPONSE
+
+          if [[ $RESPONSE == *"ok"* ]]; then
+            echo "Backend deploy success"
+          else
+            echo "Backend deploy failed"
+            exit 1
+          fi
+  
+
+  # =========================
+  # CHECK FRONTEND
+  # =========================
+
+  check-frontend:
+    name: Check Vercel Frontend
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Wait for Vercel deploy
+        run: sleep 90
+
+      - name: Check frontend website
+        run: |
+          RESPONSE=$(curl -s $FRONTEND_URL || true)
+
+          if [[ $RESPONSE == *"<html"* ]]; then
+            echo "Frontend deploy success"
+          else
+            echo "Frontend deploy failed"
+            exit 1
+          fi
+  
+
+  # =========================
+  # FINAL RESULT
+  # =========================
+
+  deploy-status:
+    name: Deployment Status
+    needs: [check-backend, check-frontend]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Show deploy result
+        run: |
+          echo "=============================="
+          echo "DEPLOY SUCCESS"
+          echo "Backend: $BACKEND_URL"
+          echo "Frontend: $FRONTEND_URL"
+          echo "=============================="

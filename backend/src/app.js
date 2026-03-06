@@ -16,6 +16,7 @@ const orderRoutes = require("./routes/order.routes");
 const orderItemRoutes = require("./routes/order_item.routes");
 const statisticsRoutes = require("./routes/statistics.routes");
 const paymentRoutes = require("./routes/payment.routes");
+const imageRoutes = require("./routes/image.routes");
 
 const app = express();
 app.use(express.json());
@@ -82,6 +83,13 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/order-items", orderItemRoutes);
 app.use("/api/statistics", statisticsRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/images", imageRoutes);
+app.get("/health", (req, res) => {
+    res.status(200).json({
+        status: "ok",
+        service: "backend"
+    });
+});
 
 // nếu có route khác, ví dụ: app.use("/products", productRoutes);
 

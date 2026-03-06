@@ -1,6 +1,7 @@
 const express = require("express");
 const productController = require("../controllers/product.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
+const upload = require("../middlewares/upload.middleware");
 
 const router = express.Router();
 
@@ -272,5 +273,107 @@ router.delete("/:id", authMiddleware, productController.delete);
  *         description: Product not found
  */
 router.patch("/:id/status", authMiddleware, productController.changeStatus);
+
+/**
+ * @swagger
+ * /api/products/create-with-variants:
+ *   post:
+ *     summary: Tạo sản phẩm + nhiều biến thể (mỗi biến thể nhiều ảnh)
+ *     tags: [Products]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - category_id
+ *               - brand_id
+ *               - variants
+ *               - image_map
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Áo thun nam
+ *               description:
+ *                 type: string
+ *                 example: Áo thun cotton 100%
+ *               category_id:
+ *                 type: integer
+ *                 example: 1
+ *               brand_id:
+ *                 type: integer
+ *                 example: 2
+ *
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *                 description: Ảnh đại diện sản phẩm (1 ảnh)
+ *
+ *               variants:
+ *                 type: string
+ *                 description: >
+ *                   JSON string mô tả danh sách biến thể.
+ *                   Ví dụ:
+ *                   [
+ *                     {"color_id":1,"size_id":1,"price":120000,"quantity":10},
+ *                     {"color_id":2,"size_id":3,"price":130000,"quantity":5}
+ *                   ]
+ *
+ *               image_map:
+ *                 type: string
+ *                 description: >
+ *                   JSON string ánh xạ ảnh → biến thể.
+ *                   KHÔNG cần đổi tên file.
+ *                   Dùng index của req.files.
+ *
+ *                   Ví dụ:
+ *                   {
+ *                     "0": {"color_id":1,"size_id":1},
+ *                     "1": {"color_id":1,"size_id":1},
+ *                     "2": {"color_id":2,"size_id":3}
+ *                   }
+ *
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: >
+ *                   Upload nhiều ảnh.
+ *                   Tất cả ảnh dùng chung key `images`.
+ *                   Mapping biến thể dựa vào image_map.
+ *
+ *     responses:
+ *       201:
+ *         description: Tạo sản phẩm và biến thể thành công
+ *         content:
+ *           application/json:
+ *             example:
+ *               product:
+ *                 id: 1
+ *                 name: Áo thun nam
+ *                 avatar: https://res.cloudinary.com/xxx/avatar.jpg
+ *               variants:
+ *                 - id: 10
+ *                   color_id: 1
+ *                   size_id: 1
+ *                   price: 120000
+ *                   quantity: 10
+ *                   images:
+ *                     - https://res.cloudinary.com/xxx/img1.jpg
+ *                     - https://res.cloudinary.com/xxx/img2.jpg
+ *
+ *       400:
+ *         description: Dữ liệu không hợp lệ
+ *       500:
+ *         description: Lỗi server
+ */
+router.post(
+    "/create-with-variants",
+    upload.any(), // ❗ giữ nguyên
+    productController.createProductWithVariants
+);
 
 module.exports = router;

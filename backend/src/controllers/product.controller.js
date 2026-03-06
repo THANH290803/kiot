@@ -1,14 +1,23 @@
 const db = require("../models");
 const { Op } = require("sequelize");
+const cloudinary = require("../utils/cloudinary");
 
 const Product = db.Product;
 const Category = db.Category;
 const Brand = db.Brand;
+const ProductVariant = db.ProductVariant;
 
 const includeRelations = [
   { model: Category, as: "category", attributes: ["id", "name"] },
   { model: Brand, as: "brand", attributes: ["id", "name"] },
 ];
+
+const CLOUDINARY_FOLDER =
+    process.env.CLOUDINARY_FOLDER || "avatarProduct";
+const getVariantImages = (files, color_id, size_id) => {
+  const key = `images_${color_id}_${size_id}`;
+  return files.filter(f => f.fieldname === key);
+};
 
 const formatProduct = (product) => ({
   id: product.id,
@@ -205,5 +214,104 @@ exports.changeStatus = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: error.message });
+  }
+};
+
+exports.createProductWithVariants = async (req, res) => {
+  const t = await db.sequelize.transaction();
+
+  try {
+    /* ================= VALIDATE ================= */
+    if (!req.body.variants || !req.body.name || !req.body.category_id || !req.body.brand_id) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const variants = JSON.parse(req.body.variants);
+    const rawImageMap = JSON.parse(req.body.image_map || "{}");
+
+    /* ================= NORMALIZE IMAGE MAP ================= */
+    const imageMap = Object.entries(rawImageMap).map(
+        ([file_index, value]) => ({
+          file_index: Number(file_index),
+          color_id: value.color_id,
+          size_id: value.size_id,
+        })
+    );
+
+    /* ================= CREATE PRODUCT (⚠️ Ở ĐÂY) ================= */
+    const product = await Product.create(
+        {
+          name: req.body.name,
+          category_id: req.body.category_id,
+          brand_id: req.body.brand_id,
+          description: req.body.description,
+        },
+        { transaction: t }
+    );
+
+    /* ================= UPLOAD AVATAR ================= */
+    const avatarFile = req.files.find(f => f.fieldname === "avatar");
+    if (avatarFile) {
+      const up = await cloudinary.uploader.upload(avatarFile.path, {
+        folder: process.env.CLOUDINARY_FOLDER || "avatarProduct",
+      });
+      await product.update({ avatar: up.secure_url }, { transaction: t });
+    }
+
+    /* ================= ALL IMAGES ================= */
+    const images = req.files.filter(f => f.fieldname === "images");
+
+    const resultVariants = [];
+
+    /* ================= CREATE VARIANTS ================= */
+    for (const v of variants) {
+      const variant = await ProductVariant.create(
+          {
+            product_id: product.id,
+            sku: `SKU-${product.id}-${v.color_id}-${v.size_id}`,
+            price: v.price,
+            quantity: v.quantity,
+            color_id: v.color_id,
+            size_id: v.size_id,
+          },
+          { transaction: t }
+      );
+
+      /* ===== MAP IMAGE → VARIANT ===== */
+      const filesOfVariant = imageMap
+          .filter(m => m.color_id === v.color_id && m.size_id === v.size_id)
+          .map(m => images[m.file_index])
+          .filter(Boolean);
+
+      const uploadedImages = [];
+
+      for (const file of filesOfVariant) {
+        const up = await cloudinary.uploader.upload(file.path, {
+          folder: `kiot/product/${product.id}/variant/${variant.id}`,
+        });
+        uploadedImages.push(up.secure_url);
+      }
+
+      resultVariants.push({
+        ...variant.toJSON(),
+        images: uploadedImages,
+      });
+    }
+
+    await t.commit();
+
+    return res.status(201).json({
+      product: {
+        id: product.id,
+        name: product.name,
+        avatar: product.avatar,
+      },
+      variants: resultVariants,
+    });
+
+  } catch (e) {
+    await t.rollback();
+    console.error(e);
+    return res.status(500).json({ message: e.message });
   }
 };
