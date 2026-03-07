@@ -32,22 +32,26 @@ const allowedOrigins = [
 ];
 
 app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Cho Postman / curl / server-to-server
-      if (!origin) return callback(null, true);
+    cors({
+        origin: function (origin, callback) {
+            if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+            // allow exact domains
+            if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
 
-      // ❌ KHÔNG throw error
-      return callback(null, false);
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
+            // allow all Vercel preview domains
+            if (origin.endsWith(".vercel.app")) {
+                return callback(null, true);
+            }
+
+            return callback(null, false);
+        },
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+    })
 );
 
 /* =========================
