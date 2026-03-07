@@ -1,6 +1,0 @@
-# Backend API URL - Development/QA
-NEXT_PUBLIC_API_URL_QA=https://kiot-dev.onrender.com
-
-# Application settings
-NEXT_PUBLIC_APP_NAME=Kiot POS
-NEXT_PUBLIC_APP_VERSION=1.0.0
