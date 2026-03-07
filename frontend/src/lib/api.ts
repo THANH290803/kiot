@@ -6,7 +6,9 @@ import axios from "axios";
  * - Được inject khác nhau theo môi trường
  */
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+    process.env.VERCEL_ENV === "preview"
+        ? process.env.NEXT_PUBLIC_API_URL_QA
+        : process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 if (!API_BASE_URL) {
   console.warn(
