@@ -67,21 +67,6 @@ interface PosReceiptSnapshot {
   createdAt: string
 }
 
-interface PendingPosOrderPayload {
-  customer_id: number
-  user_id: number
-  order_items: Array<{
-    product_id: number
-    variant_id: number
-    quantity: number
-    price: number
-  }>
-  payment_method: "cash" | "vnpay"
-  status: "pending" | "completed"
-  note: string
-  receipt: PosReceiptSnapshot
-}
-
 interface PosApiImage {
   url: string
   is_primary?: boolean
@@ -123,7 +108,6 @@ export default function POSPage() {
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false)
   const [isCreatingOrder, setIsCreatingOrder] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
-  const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null)
   const [receiptSnapshot, setReceiptSnapshot] = useState<PosReceiptSnapshot | null>(null)
   const [newCustomerName, setNewCustomerName] = useState("")
   const [newCustomerPhone, setNewCustomerPhone] = useState("")
@@ -430,20 +414,10 @@ export default function POSPage() {
     try {
       setIsCreatingOrder(true)
       setCheckoutError(null)
-      setCheckoutNotice(null)
 
       const savedUser = typeof window !== "undefined" ? localStorage.getItem("user") : null
       const parsedUser = savedUser ? JSON.parse(savedUser) as { id?: number; name?: string; username?: string } : null
       const userId = parsedUser?.id
-      const currentHostname = typeof window !== "undefined" ? window.location.hostname : ""
-      const apiBaseUrl = api.defaults.baseURL || ""
-      const useMockTransfer =
-        paymentMethod === "transfer" &&
-        (
-          currentHostname === "localhost" ||
-          currentHostname === "127.0.0.1" ||
-          apiBaseUrl.includes("kiot-dev.onrender.com")
-        )
 
       if (!userId) {
         setCheckoutError("Không tìm thấy người dùng đăng nhập để tạo đơn hàng.")
@@ -459,8 +433,8 @@ export default function POSPage() {
           quantity: item.quantity,
           price: item.price,
         })),
-        payment_method: paymentMethod === "cash" ? "cash" : useMockTransfer ? "bank_transfer" : "vnpay",
-        status: paymentMethod === "cash" ? "pending" : "completed",
+        payment_method: paymentMethod === "cash" ? "cash" : "vnpay",
+        status: "pending",
         note: "",
       } as const
 
@@ -474,38 +448,32 @@ export default function POSPage() {
         createdAt: new Date().toLocaleString(),
       } satisfies PosReceiptSnapshot
 
-      if (paymentMethod === "transfer" && !useMockTransfer) {
+      const response = await api.post("/api/orders", orderPayload)
+
+      if (paymentMethod === "transfer") {
         sessionStorage.setItem(
-          "pendingPosOrder",
+          "pendingPosReceipt",
           JSON.stringify({
-            ...orderPayload,
-            payment_method: "vnpay",
-            status: "completed",
-            receipt: receiptData,
-          } satisfies PendingPosOrderPayload),
+            ...receiptData,
+            orderCode: response.data?.order_code || "",
+          } satisfies PosReceiptSnapshot),
         )
 
         const paymentResponse = await api.post("/api/payments/vnpay/create", {
-          amount: total,
-          order_info: `Thanh toan POS cho ${customer.name}`,
+          order_id: response.data?.id,
+          orderDescription: `Thanh toan POS cho ${customer.name}`,
         })
 
         const paymentUrl = paymentResponse.data?.payment_url
 
         if (!paymentUrl) {
-          sessionStorage.removeItem("pendingPosOrder")
+          sessionStorage.removeItem("pendingPosReceipt")
           setCheckoutError("Không tạo được liên kết thanh toán VNPay.")
           return
         }
 
         window.location.href = paymentUrl
         return
-      }
-
-      const response = await api.post("/api/orders", orderPayload)
-
-      if (useMockTransfer) {
-        setCheckoutNotice("Đang dùng chế độ giả lập chuyển khoản cho local/dev. Production sẽ dùng VNPay thật.")
       }
 
       setReceiptSnapshot({
@@ -840,7 +808,6 @@ export default function POSPage() {
 
         <div className="p-4 bg-muted/30 space-y-3">
           {checkoutError ? <p className="text-sm text-destructive">{checkoutError}</p> : null}
-          {checkoutNotice ? <p className="text-sm text-amber-700">{checkoutNotice}</p> : null}
           <div className="flex justify-between text-sm">
             <span>Tổng số lượng ({cart.length}):</span>
             <span className="font-medium">{cart.reduce((s, i) => s + i.quantity, 0)}</span>
@@ -881,7 +848,7 @@ export default function POSPage() {
                     : "hover:bg-primary/5",
                 )}
               >
-                <CreditCard className="mr-2 h-4 w-4" /> Chuyển khoản
+                <CreditCard className="mr-2 h-4 w-4" /> VNPay
                 {paymentMethod === "transfer" && <Check className="ml-2 h-3 w-3" />}
               </Label>
             </div>
@@ -1033,7 +1000,7 @@ export default function POSPage() {
               </div>
               <div className="flex justify-between">
                 <span>HT thanh toán:</span>
-                <span>{receiptSnapshot?.paymentMethod === "cash" ? "Tiền mặt" : "Chuyển khoản"}</span>
+                <span>{receiptSnapshot?.paymentMethod === "cash" ? "Tiền mặt" : "VNPay"}</span>
               </div>
             </div>
             <div className="text-center pt-4 italic">

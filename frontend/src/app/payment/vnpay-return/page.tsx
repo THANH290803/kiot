@@ -6,37 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 
-interface PendingPosOrderPayload {
-  customer_id: number
-  user_id: number
-  order_items: Array<{
-    product_id: number
-    variant_id: number
-    quantity: number
-    price: number
-  }>
-  payment_method: "vnpay"
-  status: "completed"
-  note: string
-  receipt: {
-    customerName: string
-    cashierName: string
-    paymentMethod: "transfer"
-    items: Array<{
-      id: number
-      code: string
-      name: string
-      price: number
-      image: string
-      color: string
-      size: string
-      quantity: number
-    }>
-    total: number
-    createdAt: string
-  }
-}
-
 function VNPayReturnContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -63,25 +32,10 @@ function VNPayReturnContent() {
           return
         }
 
-        const pendingOrderRaw = sessionStorage.getItem("pendingPosOrder")
-
-        if (!pendingOrderRaw) {
-          setIsSuccess(false)
-          setMessage("Không tìm thấy dữ liệu đơn hàng chờ tạo sau thanh toán.")
-          return
-        }
-
-        const pendingOrder = JSON.parse(pendingOrderRaw) as PendingPosOrderPayload
-        const orderResponse = await api.post("/api/orders", pendingOrder)
-
-        if (!active) {
-          return
-        }
-
-        sessionStorage.removeItem("pendingPosOrder")
         setIsSuccess(true)
-        setOrderCode(orderResponse.data?.order_code || verifyResponse.data?.order_code || "")
-        setMessage("Thanh toán VNPay thành công. Đơn hàng đã được tạo.")
+        setOrderCode(verifyResponse.data?.order_code || "")
+        setMessage("Thanh toán VNPay thành công. Đơn hàng đã được cập nhật.")
+        sessionStorage.removeItem("pendingPosReceipt")
 
         window.setTimeout(() => {
           router.replace("/admin/pos")

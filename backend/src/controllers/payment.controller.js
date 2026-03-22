@@ -69,7 +69,7 @@ exports.createVnpayPayment = async (req, res) => {
     }
 
     const txnRef = order?.order_code || `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const orderInfo = order_info || `Thanh toan don hang ${txnRef}`;
+    const orderInfo = orderDescription || `Thanh toan don hang ${txnRef}`;
 
     const now = new Date();
     const createDate = formatVnpDate(now);
@@ -156,9 +156,22 @@ exports.verifyVnpayReturn = async (req, res) => {
     }
 
     const isSuccess = vnpParams.vnp_ResponseCode === "00" && vnpParams.vnp_TransactionStatus === "00";
+    const order = await Order.findOne({
+      where: { order_code: vnpParams.vnp_TxnRef, deleted_at: null },
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: "Không tìm thấy đơn hàng VNPay.", success: false });
+    }
+
+    await order.update({
+      status: isSuccess ? "completed" : "cancelled",
+      payment_method: "vnpay",
+    });
 
     return res.status(200).json({
       success: isSuccess,
+      order_id: order.id,
       order_code: vnpParams.vnp_TxnRef,
       amount: vnpParams.vnp_Amount ? Number(vnpParams.vnp_Amount) / 100 : 0,
       response_code: vnpParams.vnp_ResponseCode || null,

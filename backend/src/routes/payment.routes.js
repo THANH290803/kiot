@@ -25,10 +25,25 @@ const router = express.Router();
  *         application/json:
  *           schema:
  *             type: object
- *             required: [order_id]
  *             properties:
  *               order_id:
  *                 type: integer
+ *                 description: ID đơn hàng đã tạo sẵn. Không bắt buộc nếu thanh toán trước rồi mới tạo đơn.
+ *               amount:
+ *                 type: integer
+ *                 description: Số tiền thanh toán. Bắt buộc nếu không truyền order_id.
+ *               orderDescription:
+ *                 type: string
+ *                 description: Nội dung đơn hàng hiển thị trên VNPay.
+ *               orderType:
+ *                 type: string
+ *                 default: other
+ *               language:
+ *                 type: string
+ *                 default: vn
+ *               bankCode:
+ *                 type: string
+ *                 description: Mã ngân hàng, nếu muốn chỉ định trước.
  *     responses:
  *       200:
  *         description: Tạo link thanh toán thành công
