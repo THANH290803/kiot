@@ -4,21 +4,6 @@ const qs = require("qs");
 
 const Order = db.Order;
 
-function getPublicPaymentUrls() {
-  const publicBackendUrl = process.env.PUBLIC_BACKEND_URL?.replace(/\/$/, "");
-  const fallbackReturnUrl = process.env.VNP_RETURN_URL;
-  const fallbackIpnUrl = process.env.VNP_IPN_URL;
-
-  return {
-    returnUrl: publicBackendUrl
-      ? `${publicBackendUrl}/api/payments/vnpay/return`
-      : fallbackReturnUrl,
-    ipnUrl: publicBackendUrl
-      ? `${publicBackendUrl}/api/payments/vnpay/ipn`
-      : fallbackIpnUrl,
-  };
-}
-
 // ================= VNPAY CREATE PAYMENT =================
 exports.createVnpayPayment = async (req, res) => {
   try {
@@ -39,7 +24,8 @@ exports.createVnpayPayment = async (req, res) => {
     const tmnCode = process.env.VNP_TMN_CODE;
     const secretKey = process.env.VNP_HASH_SECRET;
     const vnpUrl = process.env.VNP_URL;
-    const { returnUrl, ipnUrl } = getPublicPaymentUrls();
+    const returnUrl = process.env.VNP_RETURN_URL;
+    const ipnUrl = process.env.VNP_IPN_URL;
 
     if (!tmnCode || !secretKey || !vnpUrl || !returnUrl || !ipnUrl) {
       return res.status(500).json({
@@ -77,7 +63,6 @@ exports.createVnpayPayment = async (req, res) => {
       vnp_OrderType: "other",
       vnp_Amount: normalizedAmount * 100,
       vnp_ReturnUrl: returnUrl,
-      vnp_IpnUrl: ipnUrl,
       vnp_IpAddr: ipAddr,
       vnp_CreateDate: createDate,
     };
