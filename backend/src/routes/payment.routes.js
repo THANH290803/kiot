@@ -43,6 +43,34 @@ router.post(
 
 /**
  * @swagger
+ * /api/payments/vnpay/verify-return:
+ *   get:
+ *     tags: [Payments]
+ *     summary: Xác thực dữ liệu trả về từ VNPay
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Xác thực thành công
+ *       400:
+ *         description: Chữ ký hoặc dữ liệu không hợp lệ
+ */
+router.get("/vnpay/verify-return", authMiddleware, paymentController.verifyVnpayReturn);
+
+/**
+ * @swagger
+ * /api/payments/vnpay/return:
+ *   get:
+ *     tags: [Payments]
+ *     summary: Redirect từ VNPay về frontend
+ *     responses:
+ *       302:
+ *         description: Redirect về frontend return page
+ */
+router.get("/vnpay/return", paymentController.vnpayReturnRedirect);
+
+/**
+ * @swagger
  * /api/payments/vnpay/ipn:
  *   get:
  *     tags: [Payments]

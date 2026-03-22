@@ -36,7 +36,7 @@ const router = express.Router();
  *           enum: [cash, bank_transfer, momo, vnpay, card]
  *         status:
  *           type: string
- *           enum: [pending, completed, cancelled]
+ *           enum: [pending, confirmed, shipping, delivered, completed, cancelled]
  *         note:
  *           type: string
  *           nullable: true
@@ -106,7 +106,7 @@ const router = express.Router();
  *           default: cash
  *         status:
  *           type: string
- *           enum: [pending, completed, cancelled]
+ *           enum: [pending, confirmed, shipping, delivered, completed, cancelled]
  *           default: pending
  *         note:
  *           type: string
@@ -134,7 +134,7 @@ const router = express.Router();
  *       properties:
  *         status:
  *           type: string
- *           enum: [pending, completed, cancelled]
+ *           enum: [pending, confirmed, shipping, delivered, completed, cancelled]
  *         note:
  *           type: string
  *         payment_method:
@@ -176,26 +176,21 @@ router.post("/", authMiddleware, orderController.create);
  * @swagger
  * /api/orders:
  *   get:
- *     summary: Get all orders (DESC, soft-delete filtered). Search by order_code, filter by customer name and status.
+ *     summary: Get all orders (DESC, soft-delete filtered). Search by keyword, filter by status.
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: order_code
+ *         name: keyword
  *         schema:
  *           type: string
- *         description: Search by order code (LIKE)
- *       - in: query
- *         name: customer_name
- *         schema:
- *           type: string
- *         description: Search by customer name (LIKE)
+ *         description: Tìm theo mã đơn hàng hoặc tên khách hàng (LIKE)
  *       - in: query
  *         name: status
  *         schema:
  *           type: string
- *           enum: [pending, completed, cancelled]
+ *           enum: [pending, confirmed, shipping, delivered, completed, cancelled]
  *         description: Filter by order status
  *       - in: query
  *         name: page

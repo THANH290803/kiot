@@ -235,6 +235,56 @@ router.get(
 
 /**
  * @swagger
+ * /api/products/export/excel:
+ *   get:
+ *     summary: Xuất danh sách hàng hóa và biến thể ra file Excel
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: name
+ *         schema:
+ *           type: string
+ *         example: áo
+ *         description: Lọc theo tên sản phẩm
+ *       - in: query
+ *         name: category_id
+ *         schema:
+ *           type: integer
+ *         example: 1
+ *         description: Lọc theo danh mục
+ *       - in: query
+ *         name: brand_id
+ *         schema:
+ *           type: integer
+ *         example: 2
+ *         description: Lọc theo thương hiệu
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: integer
+ *         example: 1
+ *         description: Lọc theo trạng thái sản phẩm
+ *     responses:
+ *       200:
+ *         description: Xuất file Excel thành công
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       500:
+ *         description: Lỗi server
+ */
+router.get(
+    "/export/excel",
+    authMiddleware,
+    productController.exportProductsExcel
+);
+
+/**
+ * @swagger
  * /api/products/get-details-with-variants/{id}:
  *   get:
  *     summary: Lấy chi tiết sản phẩm kèm biến thể và ảnh

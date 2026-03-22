@@ -222,23 +222,18 @@ exports.create = async (req, res) => {
 // ================= GET ALL (CHƯA XOÁ, SEARCH THEO ORDER_CODE, CUSTOMER NAME) =================
 exports.findAll = async (req, res) => {
   try {
-    const { order_code, customer_name, status, page = 1, limit = 10 } = req.query;
+    const { keyword, order_code, customer_name, status, page = 1, limit = 10 } = req.query;
 
     const where = { deleted_at: null };
     const include = [...includeRelations];
 
-    // Search by order_code
-    if (order_code) {
-      where.order_code = { [Op.like]: `%${order_code}%` };
-    }
+    const normalizedKeyword = keyword || order_code || customer_name;
 
-    // Search by customer name
-    if (customer_name) {
-      include[0] = {
-        ...include[0],
-        where: { name: { [Op.like]: `%${customer_name}%` } },
-        required: true,
-      };
+    if (normalizedKeyword) {
+      where[Op.or] = [
+        { order_code: { [Op.like]: `%${normalizedKeyword}%` } },
+        { "$customer.name$": { [Op.like]: `%${normalizedKeyword}%` } },
+      ];
     }
 
     // Filter by status

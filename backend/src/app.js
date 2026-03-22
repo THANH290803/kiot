@@ -25,7 +25,7 @@ app.use(express.json());
    ✅ CORS CONFIG (LOCAL + PROD)
 ========================= */
 const allowedOrigins = [
-  "http://localhost:3000",
+  "http://localhost:3003",
   "http://127.0.0.1:3000",
   "https://kiot-blush.vercel.app",
   "https://kiot-dev.vercel.app",
@@ -106,9 +106,26 @@ app.get("/", (req, res) => {
   res.json({ message: "API running 🚀" });
 });
 
-// ===== Start server =====
-const PORT = process.env.APP_PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`🚀 Backend API running on port ${PORT}`);
-  console.log(`📖 Swagger docs: http://localhost:${PORT}/api/docs`);
-});
+const DEFAULT_PORT = Number(process.env.APP_PORT || 3001);
+const MAX_PORT_ATTEMPTS = 10;
+
+function startServer(port, attempt = 0) {
+  const server = app.listen(port, () => {
+    console.log(`🚀 Backend API running on port ${port}`);
+    console.log(`📖 Swagger docs: http://localhost:${port}/api/docs`);
+  });
+
+  server.on("error", (error) => {
+    if (error.code === "EADDRINUSE" && attempt < MAX_PORT_ATTEMPTS) {
+      const nextPort = port + 1;
+      console.warn(`⚠️ Port ${port} is already in use. Retrying on port ${nextPort}...`);
+      startServer(nextPort, attempt + 1);
+      return;
+    }
+
+    console.error(`❌ Failed to start backend server: ${error.message}`);
+    process.exit(1);
+  });
+}
+
+startServer(DEFAULT_PORT);

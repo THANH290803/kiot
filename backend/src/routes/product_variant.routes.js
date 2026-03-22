@@ -8,7 +8,7 @@ const authMiddleware = require("../middlewares/auth.middleware");
  * @swagger
  * tags:
  *   name: ProductVariants
- *   description: Quản lý biến thể sản phẩm (1 variant = 1 avatar)
+ *   description: Quản lý biến thể sản phẩm
  */
 
 /**
@@ -68,7 +68,7 @@ router.get(
  * @swagger
  * /api/product-variants:
  *   post:
- *     summary: Tạo product variant (1 avatar duy nhất)
+ *     summary: Tạo product variant
  *     tags: [ProductVariants]
  *     security:
  *       - bearerAuth: []
@@ -94,9 +94,6 @@ router.get(
  *                 type: integer
  *               size_id:
  *                 type: integer
- *               avatar:
- *                 type: string
- *                 description: Base64 / URL để upload Cloudinary
  *     responses:
  *       201:
  *         description: Created
@@ -111,7 +108,7 @@ router.post(
  * @swagger
  * /api/product-variants/{id}:
  *   patch:
- *     summary: Update product variant (ghi đè avatar cũ)
+ *     summary: Update product variant
  *     tags: [ProductVariants]
  *     security:
  *       - bearerAuth: []
@@ -135,9 +132,6 @@ router.post(
  *                 type: integer
  *               size_id:
  *                 type: integer
- *               avatar:
- *                 type: string
- *                 description: Upload lại avatar (ghi đè)
  *     responses:
  *       200:
  *         description: Updated

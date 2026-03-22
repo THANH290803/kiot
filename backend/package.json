@@ -4,6 +4,7 @@
   "description": "Kiot Backend API - Point of Sale System",
   "main": "src/app.js",
   "scripts": {
+    "build": "node -e \"console.log('kiot-backend does not require a compile step')\"",
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
     "test": "jest --passWithNoTests",
@@ -34,6 +35,7 @@
   "devDependencies": {
     "jest": "^29.7.0",
     "nodemon": "^3.0.2",
+    "sequelize-cli": "^6.6.2",
     "supertest": "^6.3.3"
   },
   "keywords": [

@@ -20,6 +20,66 @@ const options = {
           bearerFormat: 'JWT',
         },
       },
+      schemas: {
+        ProductVariant: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'integer',
+            },
+            product_id: {
+              type: 'integer',
+            },
+            sku: {
+              type: 'string',
+            },
+            price: {
+              type: 'integer',
+            },
+            quantity: {
+              type: 'integer',
+            },
+            color_id: {
+              type: 'integer',
+            },
+            size_id: {
+              type: 'integer',
+            },
+            color: {
+              type: 'object',
+              nullable: true,
+              properties: {
+                id: {
+                  type: 'integer',
+                },
+                name: {
+                  type: 'string',
+                },
+              },
+            },
+            size: {
+              type: 'object',
+              nullable: true,
+              properties: {
+                id: {
+                  type: 'integer',
+                },
+                name: {
+                  type: 'string',
+                },
+              },
+            },
+            created_at: {
+              type: 'string',
+              format: 'date-time',
+            },
+            updated_at: {
+              type: 'string',
+              format: 'date-time',
+            },
+          },
+        },
+      },
     },
     security: [
       { bearerAuth: [] } // Áp dụng cho tất cả endpoint nếu muốn

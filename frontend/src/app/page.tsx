@@ -1,295 +1,217 @@
-"use client"
+import Link from "next/link"
+import { ArrowRight, RotateCcw, ShieldCheck, Sparkles, Truck } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 
-import { useAuth } from "@/app/auth-context"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
-import { HeaderNav } from "@/components/header-nav"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  TrendingUp,
-  Users,
-  ShoppingBag,
-  ArrowUpRight,
-  ArrowDownRight,
-  Clock,
-  Calendar,
-  DollarSign,
-  Flame,
-} from "lucide-react"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts"
-import { useState } from "react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-
-const revenueData = {
-  hour: [
-    { name: "8h", revenue: 1200000 },
-    { name: "9h", revenue: 2100000 },
-    { name: "10h", revenue: 1800000 },
-    { name: "11h", revenue: 2400000 },
-    { name: "12h", revenue: 3200000 },
-    { name: "13h", revenue: 2800000 },
-    { name: "14h", revenue: 3500000 },
-    { name: "15h", revenue: 2900000 },
-  ],
-  day: [
-    { name: "T2", revenue: 8500000 },
-    { name: "T3", revenue: 9200000 },
-    { name: "T4", revenue: 7800000 },
-    { name: "T5", revenue: 10500000 },
-    { name: "T6", revenue: 12500000 },
-    { name: "T7", revenue: 11200000 },
-    { name: "CN", revenue: 9800000 },
-  ],
-  week: [
-    { name: "Tuần 1", revenue: 45000000 },
-    { name: "Tuần 2", revenue: 52000000 },
-    { name: "Tuần 3", revenue: 48000000 },
-    { name: "Tuần 4", revenue: 58000000 },
-  ],
-  month: [
-    { name: "T1", revenue: 120000000 },
-    { name: "T2", revenue: 135000000 },
-    { name: "T3", revenue: 142000000 },
-    { name: "T4", revenue: 138000000 },
-    { name: "T5", revenue: 155000000 },
-    { name: "T6", revenue: 168000000 },
-  ],
-}
-
-const categoryData = [
-  { name: "Thời trang", value: 45, color: "#0ea5e9" },
-  { name: "Giày dép", value: 30, color: "#8b5cf6" },
-  { name: "Phụ kiện", value: 25, color: "#f59e0b" },
-]
-
-const bestSellingProducts = [
-  { id: 1, name: "Áo thun Cotton Premium", sold: 156, revenue: 39000000, growth: 12.5, image: "/shirt.jpg" },
+const highlights = [
   {
-    id: 2,
-    name: "Quần Jean Slim Fit",
-    sold: 98,
-    revenue: 44100000,
-    growth: 8.3,
-    image: "/various-styles-of-pants.png",
+    number: "01",
+    title: "Phom dáng tinh gọn",
+    description: "Những thiết kế ưu tiên đường cắt sạch, dễ phối và không nhanh lỗi thời.",
   },
-  { id: 3, name: "Giày Sneaker White", sold: 87, revenue: 73950000, growth: 15.7, image: "/assorted-shoes.png" },
-  { id: 4, name: "Mũ bảo hiểm 3/4", sold: 65, revenue: 20800000, growth: -2.1, image: "/protective-helmet.png" },
-  { id: 5, name: "Ví da bò thật", sold: 52, revenue: 9360000, growth: 6.8, image: "/leather-wallet-contents.png" },
+  {
+    number: "02",
+    title: "Chất liệu dễ sống cùng",
+    description: "Mềm, thoáng, đủ đứng dáng và phù hợp cho nhịp mặc hàng ngày.",
+  },
+  {
+    number: "03",
+    title: "Tinh thần hiện đại",
+    description: "Không phô trương, nhưng đủ sắc nét để tạo cảm giác tự tin khi xuất hiện.",
+  },
 ]
 
-export default function DashboardPage() {
-  const { isAuthenticated } = useAuth()
-  const router = useRouter()
-  const [timeFilter, setTimeFilter] = useState<"hour" | "day" | "week" | "month">("day")
+const services = [
+  {
+    icon: Truck,
+    title: "Giao hàng toàn quốc",
+    description: "Từ đơn đầu tiên đến đơn lặp lại, tốc độ và theo dõi trạng thái luôn rõ ràng.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Chọn lọc kỹ trước khi lên kệ",
+    description: "Ưu tiên form, độ hoàn thiện và cảm giác mặc thật thay vì chỉ đẹp trên ảnh.",
+  },
+  {
+    icon: RotateCcw,
+    title: "Đổi trả linh hoạt",
+    description: "Dễ đổi size, đổi màu hoặc xử lý đơn theo chính sách minh bạch và gọn gàng.",
+  },
+]
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/login")
-    }
-  }, [isAuthenticated, router])
+const editorialCards = [
+  {
+    title: "Soft Structure",
+    subtitle: "Những lớp trang phục nhẹ, đứng phom và phù hợp từ sáng đến tối.",
+    image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1200&h=1400&fit=crop",
+    size: "large",
+  },
+  {
+    title: "Quiet Tailoring",
+    subtitle: "Đơn giản nhưng sắc nét, dành cho cảm giác chỉn chu mà không gò bó.",
+    image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=900&h=1200&fit=crop",
+    size: "small",
+  },
+  {
+    title: "Weekend Ease",
+    subtitle: "Những món đồ dễ mặc, dễ chuyển nhịp và vẫn giữ được chất riêng.",
+    image: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=900&h=1200&fit=crop",
+    size: "small",
+  },
+]
 
-  if (!isAuthenticated) {
-    return null
-  }
-
+export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background">
-      <HeaderNav />
-      <main className="container mx-auto p-6 space-y-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Tổng quan cửa hàng</h1>
-            <p className="text-sm text-muted-foreground">Theo dõi hoạt động kinh doanh của bạn</p>
+    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,#f5ede3_0%,#faf7f1_28%,#ffffff_58%,#f4f7fb_100%)] text-stone-900">
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <header className="flex items-center justify-between rounded-full border border-stone-200/80 bg-white/75 px-5 py-3 shadow-sm backdrop-blur">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-950 text-sm font-semibold text-white">
+              K
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.35em] text-stone-500">Kiot Studio</p>
+              <p className="text-sm font-semibold tracking-[0.18em] text-stone-900">MODERN ESSENTIALS</p>
+            </div>
           </div>
-          <Tabs value={timeFilter} onValueChange={(v) => setTimeFilter(v as any)} className="w-full md:w-auto">
-            <TabsList className="grid w-full grid-cols-4 md:w-[400px]">
-              <TabsTrigger value="hour" className="flex items-center gap-1">
-                <Clock className="h-3 w-3" /> Giờ
-              </TabsTrigger>
-              <TabsTrigger value="day" className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" /> Ngày
-              </TabsTrigger>
-              <TabsTrigger value="week">Tuần</TabsTrigger>
-              <TabsTrigger value="month">Tháng</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <nav className="hidden items-center gap-6 text-sm text-stone-600 md:flex">
+            <Link href="/user/home" className="transition-colors hover:text-stone-950">
+              Bộ sưu tập
+            </Link>
+            <Link href="/user/shop" className="transition-colors hover:text-stone-950">
+              Mới về
+            </Link>
+            <Link href="/user/login" className="transition-colors hover:text-stone-950">
+              Tài khoản
+            </Link>
+          </nav>
+        </header>
+      </section>
+
+      <section className="mx-auto grid max-w-7xl gap-14 px-4 pb-10 pt-8 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:pt-10">
+        <div className="flex flex-col justify-center">
+          <div className="space-y-6">
+            <p className="inline-flex w-fit items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900 shadow-sm">
+              <Sparkles className="h-4 w-4" />
+              Tủ đồ được chọn lọc cho nhịp sống hiện đại
+            </p>
+
+            <div className="space-y-5">
+              <h1 className="max-w-4xl text-5xl font-semibold leading-[1.02] tracking-tight text-stone-950 sm:text-6xl lg:text-7xl">
+                Mặc đẹp theo cách
+                <span className="block text-stone-500">ít phô trương hơn,</span>
+                nhưng sắc nét hơn.
+              </h1>
+              <p className="max-w-2xl text-lg leading-8 text-stone-600">
+                Một landing page mang tinh thần biên tập: hình ảnh lớn, khoảng thở rộng, lời giới thiệu vừa đủ và cảm giác thương hiệu rõ ràng ngay từ màn hình đầu tiên.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3 pt-2">
+              <Button asChild size="lg" className="rounded-full bg-stone-950 px-7 text-white hover:bg-stone-800">
+                <Link href="/user/home">
+                  Khám phá bộ sưu tập
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="rounded-full border-stone-300 bg-white px-7 text-stone-900 hover:bg-stone-50">
+                <Link href="/user/login">Đăng nhập</Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            {highlights.map((item) => (
+              <Card key={item.number} className="border-white/80 bg-white/78 shadow-sm backdrop-blur">
+                <CardContent className="space-y-3 p-5">
+                  <p className="text-xs font-medium uppercase tracking-[0.25em] text-stone-400">{item.number}</p>
+                  <h2 className="text-lg font-semibold text-stone-950">{item.title}</h2>
+                  <p className="text-sm leading-6 text-stone-600">{item.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
 
-        {/* Thống kê nhanh */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Doanh thu hôm nay</CardTitle>
-              <TrendingUp className="h-4 w-4 text-emerald-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">12.500.000 đ</div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                <ArrowUpRight className="h-3 w-3 text-emerald-500" /> +20.1% so với hôm qua
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Số đơn hàng</CardTitle>
-              <ShoppingBag className="h-4 w-4 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">45</div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                <ArrowUpRight className="h-3 w-3 text-emerald-500" /> +5 đơn mới
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Khách hàng mới</CardTitle>
-              <Users className="h-4 w-4 text-purple-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">12</div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                <ArrowDownRight className="h-3 w-3 text-rose-500" /> -2 so với hôm qua
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Lợi nhuận ước tính</CardTitle>
-              <DollarSign className="h-4 w-4 text-orange-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">3.200.000 đ</div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                <ArrowUpRight className="h-3 w-3 text-emerald-500" /> +12% mục tiêu tháng
-              </p>
-            </CardContent>
-          </Card>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {editorialCards.map((card) => (
+            <Link
+              key={card.title}
+              href="/user/shop"
+              className={card.size === "large" ? "group relative overflow-hidden rounded-[2rem] sm:col-span-2" : "group relative overflow-hidden rounded-[1.75rem]"}
+            >
+              <img
+                src={card.image}
+                alt={card.title}
+                className={card.size === "large"
+                  ? "h-[430px] w-full object-cover transition-transform duration-700 group-hover:scale-[1.03] sm:h-[500px]"
+                  : "h-[280px] w-full object-cover transition-transform duration-700 group-hover:scale-[1.05] sm:h-[320px]"}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/15 to-transparent" />
+              <div className={card.size === "large" ? "absolute bottom-0 left-0 right-0 p-7 text-white sm:p-9" : "absolute bottom-0 left-0 right-0 p-5 text-white"}>
+                <p className="text-xs uppercase tracking-[0.28em] text-white/65">Editorial Selection</p>
+                <h2 className={card.size === "large" ? "mt-3 text-4xl font-semibold tracking-tight" : "mt-3 text-2xl font-semibold tracking-tight"}>
+                  {card.title}
+                </h2>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-white/80">{card.subtitle}</p>
+              </div>
+            </Link>
+          ))}
         </div>
+      </section>
 
-        {/* Phân tích kinh doanh và Sản phẩm bán chạy */}
-        <div className="grid gap-6 lg:grid-cols-10">
-          <Card className="lg:col-span-6">
-            <CardHeader>
-              <CardTitle>Phân tích kinh doanh</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="revenue" className="w-full">
-                <TabsList className="mb-4">
-                  <TabsTrigger value="revenue">Biểu đồ doanh thu</TabsTrigger>
-                  <TabsTrigger value="category">Tỷ trọng theo danh mục</TabsTrigger>
-                </TabsList>
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="rounded-[2rem] border border-stone-200/80 bg-white/72 p-6 shadow-sm backdrop-blur sm:p-8 lg:p-10">
+          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+            <div className="space-y-4">
+              <p className="text-xs uppercase tracking-[0.3em] text-stone-500">Dịch vụ</p>
+              <h2 className="text-3xl font-semibold tracking-tight text-stone-950 sm:text-4xl">
+                Đẹp ở cảm giác sử dụng, không chỉ ở khung hình.
+              </h2>
+              <p className="text-base leading-7 text-stone-600">
+                Một thương hiệu thời trang không dừng ở hình ảnh. Trải nghiệm sau khi chọn sản phẩm, đặt hàng và nhận hàng cũng phải đủ gọn, rõ và đáng tin.
+              </p>
+            </div>
 
-                <TabsContent value="revenue" className="mt-0">
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={revenueData[timeFilter]}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
-                      <YAxis
-                        stroke="#6b7280"
-                        fontSize={12}
-                        tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
-                      />
-                      <Tooltip
-                        formatter={(value: number) => [`${value.toLocaleString()} đ`, "Doanh thu"]}
-                        contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }}
-                      />
-                      <Legend />
-                      <Bar dataKey="revenue" fill="oklch(0.45 0.15 250)" name="Doanh thu" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </TabsContent>
-
-                <TabsContent value="category" className="mt-0">
-                  <div className="flex flex-col md:flex-row items-center gap-8">
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={categoryData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={100}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {categoryData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value: number) => [`${value}%`, "Tỷ lệ"]} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="space-y-3 w-full md:w-auto">
-                      {categoryData.map((cat) => (
-                        <div key={cat.name} className="flex items-center justify-between gap-8 text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="h-4 w-4 rounded-full" style={{ backgroundColor: cat.color }} />
-                            <span className="font-medium">{cat.name}</span>
-                          </div>
-                          <span className="font-bold text-lg">{cat.value}%</span>
-                        </div>
-                      ))}
+            <div className="grid gap-4">
+              {services.map((service) => (
+                <Card key={service.title} className="border-stone-200/70 bg-stone-50/70 shadow-none">
+                  <CardContent className="flex gap-4 p-5">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-stone-950 shadow-sm">
+                      <service.icon className="h-5 w-5" />
                     </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-
-          <Card className="lg:col-span-4">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Flame className="h-4 w-4 text-orange-500" />
-                Sản phẩm bán chạy
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="pl-6">Sản phẩm</TableHead>
-                    <TableHead className="text-right pr-6">Đã bán</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {bestSellingProducts.map((product, index) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="pl-6">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded bg-muted overflow-hidden shrink-0">
-                            <img
-                              src={product.image || "/placeholder.svg"}
-                              alt={product.name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <span className="text-sm font-medium line-clamp-1">{product.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right pr-6 font-bold text-primary">{product.sold}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                    <div>
+                      <h3 className="font-semibold text-stone-950">{service.title}</h3>
+                      <p className="mt-1 text-sm leading-6 text-stone-600">{service.description}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
         </div>
-      </main>
-    </div>
+      </section>
+
+      <section className="border-t border-stone-200/80 bg-white/60">
+        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-12 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
+          <div>
+            <p className="text-xs uppercase tracking-[0.25em] text-stone-500">Tông cảm xúc</p>
+            <p className="mt-3 text-lg font-medium text-stone-900">Sáng, sạch, có khoảng thở và không ép người dùng phải quyết định quá sớm.</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.25em] text-stone-500">Ngôn ngữ hình ảnh</p>
+            <p className="mt-3 text-lg font-medium text-stone-900">Hero lớn, ảnh biên tập, lớp chữ ngắn và CTA rõ nhưng không ồn.</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.25em] text-stone-500">Điểm vào chính</p>
+            <p className="mt-3 text-lg font-medium text-stone-900">Người dùng được dẫn tự nhiên sang mua sắm hoặc đăng nhập khi đã sẵn sàng.</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.25em] text-stone-500">URL local</p>
+            <p className="mt-3 text-lg font-medium text-stone-900">`/` là landing page, `/user/home` là điểm bắt đầu chính của trải nghiệm.</p>
+          </div>
+        </div>
+      </section>
+    </main>
   )
 }

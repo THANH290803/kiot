@@ -18,9 +18,8 @@ const ibmPlexMono = IBM_Plex_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "KiotV0 - Phần mềm quản lý bán hàng",
-  description: "Hệ thống quản lý bán hàng chuyên nghiệp",
-  generator: "v0.app",
+  title: "Kiot - Scalable Next.js Frontend",
+  description: "Feature-based frontend architecture with separate ecommerce and admin route groups.",
   icons: {
     icon: [
       {
