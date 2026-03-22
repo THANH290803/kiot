@@ -4,15 +4,45 @@ const qs = require("qs");
 
 const Order = db.Order;
 
-function formatVnpDate(date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  const hours = `${date.getHours()}`.padStart(2, "0");
-  const minutes = `${date.getMinutes()}`.padStart(2, "0");
-  const seconds = `${date.getSeconds()}`.padStart(2, "0");
+function getVietnamDateParts(date) {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
 
-  return `${year}${month}${day}${hours}${minutes}${seconds}`;
+  const parts = formatter.formatToParts(date);
+  const getPart = (type) => parts.find((part) => part.type === type)?.value || "";
+
+  return {
+    year: getPart("year"),
+    month: getPart("month"),
+    day: getPart("day"),
+    hour: getPart("hour"),
+    minute: getPart("minute"),
+    second: getPart("second"),
+  };
+}
+
+function formatVnpDate(date) {
+  const { year, month, day, hour, minute, second } = getVietnamDateParts(date);
+  return `${year}${month}${day}${hour}${minute}${second}`;
+}
+
+function addMinutesInVietnam(date, minutesToAdd) {
+  const vietnamNow = new Date(
+    date.toLocaleString("en-US", {
+      timeZone: "Asia/Ho_Chi_Minh",
+    }),
+  );
+
+  vietnamNow.setMinutes(vietnamNow.getMinutes() + minutesToAdd);
+  return vietnamNow;
 }
 
 function sortObject(object) {
@@ -73,7 +103,7 @@ exports.createVnpayPayment = async (req, res) => {
 
     const now = new Date();
     const createDate = formatVnpDate(now);
-    const expireDate = formatVnpDate(new Date(now.getTime() + 15 * 60 * 1000));
+    const expireDate = formatVnpDate(addMinutesInVietnam(now, 15));
     const orderId = order?.order_code || formatVnpDate(now).slice(-6);
 
     const ipAddr =
