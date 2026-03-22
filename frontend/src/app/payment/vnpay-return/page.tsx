@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
@@ -37,7 +37,7 @@ interface PendingPosOrderPayload {
   }
 }
 
-export default function VNPayReturnPage() {
+function VNPayReturnContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [message, setMessage] = useState("Đang xác thực thanh toán VNPay...")
@@ -127,5 +127,21 @@ export default function VNPayReturnPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+export default function VNPayReturnPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-muted/30 px-4 py-10">
+          <div className="mx-auto max-w-xl rounded-2xl bg-background p-8 shadow-sm">
+            <p className="text-sm text-muted-foreground">Đang tải kết quả thanh toán...</p>
+          </div>
+        </main>
+      }
+    >
+      <VNPayReturnContent />
+    </Suspense>
   )
 }
