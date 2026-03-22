@@ -84,7 +84,7 @@ exports.createVnpayPayment = async (req, res) => {
     vnpParams.vnp_SecureHash = secureHash;
 
     return res.json({
-      payment_url: `${vnpUrl}?${qs.stringify(vnpParams, { encode: false })}`,
+      payment_url: `${vnpUrl}?${qs.stringify(vnpParams, { encode: true })}`,
       order_id: order?.id || null,
       order_code: txnRef,
       amount: normalizedAmount,
@@ -116,7 +116,7 @@ exports.verifyVnpayReturn = async (req, res) => {
         return acc;
       }, {});
 
-    const signData = qs.stringify(sortedParams, { encode: false });
+    const signData = qs.stringify(sortedParams, { encode: true });
     const checkHash = crypto
       .createHmac("sha512", secretKey)
       .update(Buffer.from(signData))
