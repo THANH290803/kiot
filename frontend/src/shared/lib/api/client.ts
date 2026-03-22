@@ -3,8 +3,8 @@ import axios from "axios"
 const isDevelopment = process.env.NODE_ENV === "development"
 
 const API_BASE_URL = isDevelopment
-  ? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002"
-  : process.env.NEXT_PUBLIC_API_URL_QA ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002"
+  ? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"
+  : process.env.NEXT_PUBLIC_API_URL_QA ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

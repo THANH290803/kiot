@@ -4,10 +4,39 @@ const qs = require("qs");
 
 const Order = db.Order;
 
+function formatVnpDate(date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  const hours = `${date.getHours()}`.padStart(2, "0");
+  const minutes = `${date.getMinutes()}`.padStart(2, "0");
+  const seconds = `${date.getSeconds()}`.padStart(2, "0");
+
+  return `${year}${month}${day}${hours}${minutes}${seconds}`;
+}
+
+function sortObject(object) {
+  const sorted = {};
+  const keys = Object.keys(object).sort();
+
+  for (const key of keys) {
+    sorted[key] = object[key];
+  }
+
+  return sorted;
+}
+
 // ================= VNPAY CREATE PAYMENT =================
 exports.createVnpayPayment = async (req, res) => {
   try {
-    const { order_id, amount, order_info } = req.body;
+    const {
+      order_id,
+      amount,
+      bankCode = "",
+      language = "vn",
+      orderDescription,
+      orderType = "other",
+    } = req.body;
 
     let order = null;
 
@@ -42,51 +71,51 @@ exports.createVnpayPayment = async (req, res) => {
     const txnRef = order?.order_code || `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const orderInfo = order_info || `Thanh toan don hang ${txnRef}`;
 
-    const createDate = new Date()
-      .toISOString()
-      .replace(/[-:TZ.]/g, "")
-      .slice(0, 14);
+    const now = new Date();
+    const createDate = formatVnpDate(now);
+    const expireDate = formatVnpDate(new Date(now.getTime() + 15 * 60 * 1000));
+    const orderId = order?.order_code || formatVnpDate(now).slice(-6);
 
     const ipAddr =
       req.headers["x-forwarded-for"] ||
+      req.connection?.remoteAddress ||
       req.socket.remoteAddress ||
       "127.0.0.1";
 
-    let vnpParams = {
+    const vnpParams = {
       vnp_Version: "2.1.0",
       vnp_Command: "pay",
       vnp_TmnCode: tmnCode,
-      vnp_Locale: "vn",
+      vnp_Locale: language || "vn",
       vnp_CurrCode: "VND",
-      vnp_TxnRef: txnRef,
-      vnp_OrderInfo: orderInfo,
-      vnp_OrderType: "other",
+      vnp_TxnRef: order?.order_code || txnRef || orderId,
+      vnp_OrderInfo: orderDescription || `Thanh toan don hang:${order?.order_code || txnRef || orderId}`,
+      vnp_OrderType: orderType || "other",
       vnp_Amount: normalizedAmount * 100,
       vnp_ReturnUrl: returnUrl,
       vnp_IpAddr: ipAddr,
       vnp_CreateDate: createDate,
+      vnp_ExpireDate: expireDate,
     };
 
-    // sort params
-    vnpParams = Object.keys(vnpParams)
-      .sort()
-      .reduce((acc, key) => {
-        acc[key] = vnpParams[key];
-        return acc;
-      }, {});
+    if (bankCode) {
+      vnpParams.vnp_BankCode = bankCode;
+    }
 
-    const signData = qs.stringify(vnpParams, { encode: false });
+    const sortedParams = sortObject(vnpParams);
+
+    const signData = qs.stringify(sortedParams, { encode: false });
     const secureHash = crypto
       .createHmac("sha512", secretKey)
       .update(Buffer.from(signData))
       .digest("hex");
 
-    vnpParams.vnp_SecureHash = secureHash;
+    sortedParams.vnp_SecureHash = secureHash;
 
     return res.json({
-      payment_url: `${vnpUrl}?${qs.stringify(vnpParams, { encode: true })}`,
+      payment_url: `${vnpUrl}?${qs.stringify(sortedParams, { encode: false })}`,
       order_id: order?.id || null,
-      order_code: txnRef,
+      order_code: order?.order_code || txnRef || orderId,
       amount: normalizedAmount,
     });
   } catch (error) {

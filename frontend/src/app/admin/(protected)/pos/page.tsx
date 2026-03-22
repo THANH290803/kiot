@@ -123,6 +123,7 @@ export default function POSPage() {
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false)
   const [isCreatingOrder, setIsCreatingOrder] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
+  const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null)
   const [receiptSnapshot, setReceiptSnapshot] = useState<PosReceiptSnapshot | null>(null)
   const [newCustomerName, setNewCustomerName] = useState("")
   const [newCustomerPhone, setNewCustomerPhone] = useState("")
@@ -429,10 +430,20 @@ export default function POSPage() {
     try {
       setIsCreatingOrder(true)
       setCheckoutError(null)
+      setCheckoutNotice(null)
 
       const savedUser = typeof window !== "undefined" ? localStorage.getItem("user") : null
       const parsedUser = savedUser ? JSON.parse(savedUser) as { id?: number; name?: string; username?: string } : null
       const userId = parsedUser?.id
+      const currentHostname = typeof window !== "undefined" ? window.location.hostname : ""
+      const apiBaseUrl = api.defaults.baseURL || ""
+      const useMockTransfer =
+        paymentMethod === "transfer" &&
+        (
+          currentHostname === "localhost" ||
+          currentHostname === "127.0.0.1" ||
+          apiBaseUrl.includes("kiot-dev.onrender.com")
+        )
 
       if (!userId) {
         setCheckoutError("Không tìm thấy người dùng đăng nhập để tạo đơn hàng.")
@@ -448,7 +459,7 @@ export default function POSPage() {
           quantity: item.quantity,
           price: item.price,
         })),
-        payment_method: paymentMethod === "cash" ? "cash" : "vnpay",
+        payment_method: paymentMethod === "cash" ? "cash" : useMockTransfer ? "bank_transfer" : "vnpay",
         status: paymentMethod === "cash" ? "pending" : "completed",
         note: "",
       } as const
@@ -463,7 +474,7 @@ export default function POSPage() {
         createdAt: new Date().toLocaleString(),
       } satisfies PosReceiptSnapshot
 
-      if (paymentMethod === "transfer") {
+      if (paymentMethod === "transfer" && !useMockTransfer) {
         sessionStorage.setItem(
           "pendingPosOrder",
           JSON.stringify({
@@ -492,6 +503,10 @@ export default function POSPage() {
       }
 
       const response = await api.post("/api/orders", orderPayload)
+
+      if (useMockTransfer) {
+        setCheckoutNotice("Đang dùng chế độ giả lập chuyển khoản cho local/dev. Production sẽ dùng VNPay thật.")
+      }
 
       setReceiptSnapshot({
         orderCode: response.data?.order_code || "",
@@ -825,6 +840,7 @@ export default function POSPage() {
 
         <div className="p-4 bg-muted/30 space-y-3">
           {checkoutError ? <p className="text-sm text-destructive">{checkoutError}</p> : null}
+          {checkoutNotice ? <p className="text-sm text-amber-700">{checkoutNotice}</p> : null}
           <div className="flex justify-between text-sm">
             <span>Tổng số lượng ({cart.length}):</span>
             <span className="font-medium">{cart.reduce((s, i) => s + i.quantity, 0)}</span>
