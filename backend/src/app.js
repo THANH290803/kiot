@@ -25,6 +25,7 @@ app.use(express.json());
    ✅ CORS CONFIG (LOCAL + PROD)
 ========================= */
 const allowedOrigins = [
+  "http://localhost:3000",
   "http://localhost:3003",
   "http://127.0.0.1:3000",
   "https://kiot-blush.vercel.app",
@@ -38,6 +39,11 @@ app.use(
 
             // allow exact domains
             if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+
+            // allow localhost / 127.0.0.1 on any port for local development
+            if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
                 return callback(null, true);
             }
 

@@ -8,7 +8,8 @@ import {
   UserPlus,
   Trash2,
   Calculator,
-  CreditCard,
+  QrCode,
+  Copy,
   Banknote,
   User,
   X,
@@ -51,6 +52,7 @@ interface PosCustomer {
   name: string
   phone: string
   email?: string
+  address?: string
 }
 
 interface PosCartItem extends PosSuggestionProduct {
@@ -60,11 +62,25 @@ interface PosCartItem extends PosSuggestionProduct {
 interface PosReceiptSnapshot {
   orderCode: string
   customerName: string
+  customerPhone?: string
+  customerAddress?: string
   cashierName: string
   paymentMethod: "cash" | "transfer"
   items: PosCartItem[]
   total: number
   createdAt: string
+}
+
+interface PosBankQrPayload {
+  order_id: number | null
+  order_code: string
+  amount: number
+  bank_name: string
+  bank_bin: string
+  account_no: string
+  account_name: string
+  transfer_content: string
+  qr_url: string
 }
 
 interface PosApiImage {
@@ -106,6 +122,8 @@ export default function POSPage() {
   const [customerType, setCustomerType] = useState<"existing" | "new">("existing")
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer">("cash")
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false)
+  const [isBankQrDialogOpen, setIsBankQrDialogOpen] = useState(false)
+  const [bankQrPayload, setBankQrPayload] = useState<PosBankQrPayload | null>(null)
   const [isCreatingOrder, setIsCreatingOrder] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [receiptSnapshot, setReceiptSnapshot] = useState<PosReceiptSnapshot | null>(null)
@@ -260,6 +278,7 @@ export default function POSPage() {
           name: item.name,
           phone: item.phone_number || "Chưa có số điện thoại",
           email: item.email,
+          address: (item as { address?: string }).address,
         }))
 
         setCustomers(mappedCustomers)
@@ -433,14 +452,16 @@ export default function POSPage() {
           quantity: item.quantity,
           price: item.price,
         })),
-        payment_method: paymentMethod === "cash" ? "cash" : "vnpay",
-        status: "pending",
+        payment_method: paymentMethod === "cash" ? "cash" : "bank_transfer",
+        status: paymentMethod === "cash" ? "completed" : "pending",
         note: "",
       } as const
 
       const receiptData = {
         orderCode: "",
         customerName: customer.name || "Khách lẻ",
+        customerPhone: customer.phone,
+        customerAddress: customer.address,
         cashierName: parsedUser?.name || parsedUser?.username || "Admin",
         paymentMethod,
         items: cart.map((item) => ({ ...item })),
@@ -451,34 +472,36 @@ export default function POSPage() {
       const response = await api.post("/api/orders", orderPayload)
 
       if (paymentMethod === "transfer") {
-        sessionStorage.setItem(
-          "pendingPosReceipt",
-          JSON.stringify({
-            ...receiptData,
-            orderCode: response.data?.order_code || "",
-          } satisfies PosReceiptSnapshot),
-        )
-
-        const paymentResponse = await api.post("/api/payments/vnpay/create", {
+        const paymentResponse = await api.post("/api/payments/bank-qr/create", {
           order_id: response.data?.id,
-          orderDescription: `Thanh toan POS cho ${customer.name}`,
+          amount: total,
+          transferContent: `Thanh toan POS ${response.data?.order_code || ""}`,
         })
 
-        const paymentUrl = paymentResponse.data?.payment_url
+        const qrPayload = paymentResponse.data as PosBankQrPayload
 
-        if (!paymentUrl) {
-          sessionStorage.removeItem("pendingPosReceipt")
-          setCheckoutError("Không tạo được liên kết thanh toán VNPay.")
+        if (!qrPayload?.qr_url) {
+          setCheckoutError("Không tạo được QR chuyển khoản ngân hàng.")
           return
         }
 
-        window.location.href = paymentUrl
+        setBankQrPayload(qrPayload)
+        setReceiptSnapshot({
+          ...receiptData,
+          orderCode: qrPayload.order_code || response.data?.order_code || "",
+        })
+        setIsBankQrDialogOpen(true)
+        setCart([])
+        setSearchQuery("")
+        setShowSuggestions(false)
         return
       }
 
       setReceiptSnapshot({
         orderCode: response.data?.order_code || "",
         customerName: receiptData.customerName,
+        customerPhone: receiptData.customerPhone,
+        customerAddress: receiptData.customerAddress,
         cashierName: parsedUser?.name || parsedUser?.username || "Admin",
         paymentMethod,
         items: cart.map((item) => ({ ...item })),
@@ -521,6 +544,7 @@ export default function POSPage() {
           name: response.data?.name || newCustomerName.trim(),
           phone: response.data?.phone_number || newCustomerPhone.trim(),
           email: response.data?.email,
+          address: response.data?.address,
         }
 
         setCustomer(createdCustomer)
@@ -558,21 +582,110 @@ export default function POSPage() {
           <title>In hóa đơn</title>
           <style>
             body {
-              font-family: Arial, sans-serif;
-              padding: 16px;
-              color: #111827;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-            }
-            th, td {
-              text-align: left;
-              vertical-align: top;
-              padding: 6px 0;
+              font-family: "Times New Roman", Georgia, serif;
+              background: #f0f0f0;
+              padding: 14px;
+              color: #111;
             }
             .receipt-root {
+              max-width: 340px;
+              margin: 0 auto;
+              background: #fff;
+              border: 1px solid #d8d8d8;
+              padding: 16px;
+              font-size: 13px;
+              line-height: 1.35;
+            }
+            .receipt-separator {
+              border-top: 1px dashed #7a7a7a;
+              margin: 14px 0;
+            }
+            .receipt-header {
+              display: flex;
+              justify-content: space-between;
+              gap: 10px;
+            }
+            .receipt-logo {
+              font-family: Arial, sans-serif;
+              font-size: 34px;
+              line-height: 1;
+              color: #2d8cff;
+              margin-right: 8px;
+            }
+            .receipt-brand {
+              display: flex;
+              align-items: center;
+              font-size: 22px;
+              font-weight: 700;
+              font-family: Arial, sans-serif;
+              color: #11315d;
+            }
+            .receipt-store {
+              text-align: right;
               font-size: 12px;
+              font-family: Arial, sans-serif;
+            }
+            .receipt-title {
+              text-align: center;
+              margin-top: 2px;
+            }
+            .receipt-title h2 {
+              margin: 0;
+              font-size: 44px;
+              font-weight: 700;
+            }
+            .receipt-code {
+              margin-top: 2px;
+              color: #1e88e5;
+              font-size: 34px;
+              font-weight: 700;
+            }
+            .receipt-info p {
+              margin: 2px 0;
+              font-size: 15px;
+            }
+            .receipt-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 15px;
+            }
+            .receipt-table th,
+            .receipt-table td {
+              padding: 3px 0;
+              vertical-align: top;
+            }
+            .receipt-table th:nth-child(2),
+            .receipt-table td:nth-child(2) {
+              width: 44px;
+              text-align: center;
+            }
+            .receipt-table th:last-child,
+            .receipt-table td:last-child {
+              width: 110px;
+              text-align: right;
+            }
+            .receipt-summary {
+              margin-top: 8px;
+              font-size: 16px;
+            }
+            .receipt-summary-row {
+              display: flex;
+              justify-content: space-between;
+              margin: 2px 0;
+            }
+            .receipt-total {
+              font-weight: 700;
+              font-size: 17px;
+            }
+            .receipt-qr {
+              margin-top: 14px;
+              text-align: center;
+            }
+            .receipt-qr img {
+              width: 140px;
+              height: 140px;
+              object-fit: contain;
+              border: 1px solid #d6d6d6;
             }
           </style>
         </head>
@@ -848,7 +961,7 @@ export default function POSPage() {
                     : "hover:bg-primary/5",
                 )}
               >
-                <CreditCard className="mr-2 h-4 w-4" /> VNPay
+                <QrCode className="mr-2 h-4 w-4" /> QR ngân hàng
                 {paymentMethod === "transfer" && <Check className="ml-2 h-3 w-3" />}
               </Label>
             </div>
@@ -956,56 +1069,94 @@ export default function POSPage() {
       </Dialog>
 
       <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[760px]">
           <DialogHeader>
             <DialogTitle className="text-center">HÓA ĐƠN BÁN HÀNG</DialogTitle>
           </DialogHeader>
-          <div ref={receiptPrintRef} className="p-4 border border-dashed rounded-md bg-white text-xs font-mono space-y-4">
-            <div className="text-center border-b pb-2">
-              <p className="font-bold text-base">KIOTV0 - RETAIL SYSTEM</p>
-              <p>123 Đường ABC, Quận 1, TP. HCM</p>
-              <p>Hotline: 1900 1234</p>
+          <div
+            ref={receiptPrintRef}
+            className="receipt-root mx-auto w-full max-w-[560px] space-y-4 rounded-md border bg-neutral-50 p-6 text-[14px] leading-6 text-stone-800"
+          >
+            <div className="receipt-header flex items-start justify-between gap-4">
+              <div className="receipt-brand flex items-center gap-1 text-3xl font-bold tracking-tight text-blue-900">
+                <span className="receipt-logo text-blue-500">◖</span>
+                <span>KiotViet</span>
+              </div>
+              <div className="receipt-store space-y-0.5 text-right text-xs text-stone-700">
+                <p>1B Yết Kiêu, Hà Đông, Hà Nội</p>
+                <p>+84 734623232</p>
+                <p>kiotviet@gmail.com</p>
+                <p>https://kiot-blush.vercel.app/</p>
+              </div>
             </div>
-            <div className="space-y-1">
-              <p>Mã HĐ: {receiptSnapshot?.orderCode || "Đang cập nhật"}</p>
-              <p>Ngày: {receiptSnapshot?.createdAt || new Date().toLocaleString()}</p>
-              <p>Thu ngân: {receiptSnapshot?.cashierName || "Admin"}</p>
+            <div className="receipt-separator border-t border-dashed border-stone-500" />
+            <div className="receipt-title text-center">
+              <h2 className="text-5xl font-semibold leading-tight">Hóa đơn bán hàng</h2>
+              <p className="receipt-code mt-1 text-4xl font-bold text-sky-500">{receiptSnapshot?.orderCode || "HD00000"}</p>
+            </div>
+            <div className="receipt-info mt-3 space-y-0.5 text-lg leading-8">
               <p>Khách hàng: {receiptSnapshot?.customerName || "Khách lẻ"}</p>
+              <p>
+                Số điện thoại:{" "}
+                {receiptSnapshot?.customerPhone
+                  ? `${"*".repeat(Math.max(0, receiptSnapshot.customerPhone.length - 3))}${receiptSnapshot.customerPhone.slice(-3)}`
+                  : "Chưa cập nhật"}
+              </p>
+              <p>Địa chỉ: {receiptSnapshot?.customerAddress || "Chưa cập nhật"}</p>
+              <p>Nhân viên bán hàng: {receiptSnapshot?.cashierName || "Admin"}</p>
+              <p>Ngày bán: {receiptSnapshot?.createdAt || new Date().toLocaleString()}</p>
             </div>
-            <table className="w-full text-left">
-              <thead className="border-y border-dashed">
+            <div className="receipt-separator border-t border-dashed border-stone-500" />
+            <table className="receipt-table w-full border-collapse text-lg leading-8">
+              <thead>
                 <tr>
-                  <th className="py-1">SL x ĐG</th>
+                  <th className="py-1 text-left">Tên sản phẩm</th>
+                  <th className="py-1 text-center">SL</th>
                   <th className="text-right">T.Tiền</th>
                 </tr>
               </thead>
               <tbody>
                 {(receiptSnapshot?.items || []).map((item) => (
-                  <tr key={item.id} className="border-b border-dashed border-gray-100">
+                  <tr key={item.id} className="border-b border-dashed border-gray-300">
                     <td className="py-2">
-                      <p className="font-bold">{item.name}</p>
+                      <p className="font-semibold">{item.name}</p>
                       <p>
-                        {item.quantity} x {item.price.toLocaleString()}
+                        ({item.color} - {item.size})
                       </p>
                     </td>
+                    <td className="text-center align-top py-2">{item.quantity}</td>
                     <td className="text-right align-top py-2">{(item.quantity * item.price).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <div className="space-y-1 pt-2 border-t border-dashed">
-              <div className="flex justify-between font-bold text-sm">
-                <span>TỔNG CỘNG:</span>
-                <span>{(receiptSnapshot?.total || 0).toLocaleString()} đ</span>
+            <div className="receipt-separator border-t border-dashed border-stone-500" />
+            <div className="receipt-summary ml-auto w-[62%] text-xl leading-9">
+              <div className="receipt-summary-row flex items-center justify-between">
+                <span>Tổng tiền hàng:</span>
+                <span>{(receiptSnapshot?.total || 0).toLocaleString()}</span>
               </div>
-              <div className="flex justify-between">
-                <span>HT thanh toán:</span>
-                <span>{receiptSnapshot?.paymentMethod === "cash" ? "Tiền mặt" : "VNPay"}</span>
+              <div className="receipt-summary-row flex items-center justify-between">
+                <span>VAT:</span>
+                <span>0</span>
+              </div>
+              <div className="receipt-summary-row flex items-center justify-between">
+                <span>Chiết khấu:</span>
+                <span>0</span>
+              </div>
+              <div className="receipt-separator my-2 border-t border-dashed border-stone-500" />
+              <div className="receipt-summary-row receipt-total flex items-center justify-between text-2xl font-bold">
+                <span>Tổng tiền:</span>
+                <span>{(receiptSnapshot?.total || 0).toLocaleString()}</span>
               </div>
             </div>
-            <div className="text-center pt-4 italic">
-              <p>Cảm ơn quý khách!</p>
-              <p>Hẹn gặp lại.</p>
+            {bankQrPayload?.qr_url ? (
+              <div className="receipt-qr flex justify-center pt-2">
+                <img src={bankQrPayload.qr_url} alt="QR thanh toán" className="h-44 w-44 rounded-sm border bg-white p-1" />
+              </div>
+            ) : null}
+            <div className="text-center pt-2 italic text-base">
+              <p>Hình thức thanh toán: {receiptSnapshot?.paymentMethod === "cash" ? "Tiền mặt" : "Chuyển khoản QR"}</p>
             </div>
           </div>
           <DialogFooter className="grid grid-cols-2 gap-2">
@@ -1014,6 +1165,72 @@ export default function POSPage() {
             </Button>
             <Button className="bg-primary" onClick={handlePrintReceipt}>
               <Printer className="mr-2 h-4 w-4" /> In hóa đơn
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isBankQrDialogOpen} onOpenChange={setIsBankQrDialogOpen}>
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle className="text-center">THANH TOÁN QR NGÂN HÀNG</DialogTitle>
+          </DialogHeader>
+          {bankQrPayload ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border p-3 text-sm">
+                <p>
+                  Mã đơn: <span className="font-semibold">{bankQrPayload.order_code}</span>
+                </p>
+                <p>
+                  Số tiền: <span className="font-semibold">{bankQrPayload.amount.toLocaleString()} đ</span>
+                </p>
+                <p>
+                  Ngân hàng: <span className="font-semibold">{bankQrPayload.bank_name}</span>
+                </p>
+                <p>
+                  STK: <span className="font-semibold">{bankQrPayload.account_no}</span>
+                </p>
+                <p>
+                  Chủ TK: <span className="font-semibold">{bankQrPayload.account_name}</span>
+                </p>
+              </div>
+              <div className="flex justify-center">
+                <img
+                  src={bankQrPayload.qr_url}
+                  alt="Mã QR thanh toán ngân hàng"
+                  className="h-72 w-72 rounded-lg border object-contain"
+                />
+              </div>
+              <div className="rounded-lg border bg-muted/20 p-3 text-sm">
+                <p className="mb-1 font-medium">Nội dung chuyển khoản</p>
+                <div className="flex items-center justify-between gap-2">
+                  <code className="truncate">{bankQrPayload.transfer_content}</code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(bankQrPayload.transfer_content)
+                    }}
+                  >
+                    <Copy className="mr-1 h-3.5 w-3.5" /> Copy
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Không có dữ liệu QR.</p>
+          )}
+          <DialogFooter className="grid grid-cols-2 gap-2">
+            <Button variant="outline" onClick={() => setIsBankQrDialogOpen(false)}>
+              Đóng
+            </Button>
+            <Button
+              onClick={() => {
+                setIsBankQrDialogOpen(false)
+                setIsReceiptDialogOpen(true)
+              }}
+            >
+              Xem hóa đơn
             </Button>
           </DialogFooter>
         </DialogContent>

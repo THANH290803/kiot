@@ -492,7 +492,7 @@ exports.getCategoryRevenuePie = async (req, res) => {
 
     const { startDate, endDate } = getDateRange(period);
 
-    const categoryRevenue = await OrderItem.findAll({
+    const orderItems = await OrderItem.findAll({
       where: {
         '$order.deleted_at$': null,
         '$order.created_at$': {
@@ -509,7 +509,7 @@ exports.getCategoryRevenuePie = async (req, res) => {
         {
           model: db.Product,
           as: 'product',
-          attributes: ['id', 'name'],
+          attributes: ['id'],
           include: [
             {
               model: db.Category,
@@ -519,28 +519,55 @@ exports.getCategoryRevenuePie = async (req, res) => {
           ]
         }
       ],
-      attributes: [
-        [Sequelize.fn('SUM', Sequelize.col('total')), 'revenue'],
-        [Sequelize.fn('COUNT', Sequelize.col('order_id')), 'orders'],
-        [Sequelize.fn('SUM', Sequelize.col('quantity')), 'quantity']
-      ],
-      group: ['product.category.id', 'product.category.name'],
-      order: [[Sequelize.fn('SUM', Sequelize.col('total')), 'DESC']],
-      raw: true
+      attributes: ['order_id', 'total', 'quantity'],
     });
 
-    const totalRevenue = categoryRevenue.reduce((sum, item) => sum + parseInt(item.revenue || 0), 0);
-    const totalOrders = categoryRevenue.reduce((sum, item) => sum + parseInt(item.orders || 0), 0);
-    const totalQuantity = categoryRevenue.reduce((sum, item) => sum + parseInt(item.quantity || 0), 0);
+    const categoryMap = new Map();
 
-    const pieData = categoryRevenue.map(item => ({
-      category_id: item['product.category.id'],
-      category_name: item['product.category.name'],
-      revenue: parseInt(item.revenue || 0),
-      orders: parseInt(item.orders || 0),
-      quantity: parseInt(item.quantity || 0),
-      percentage: totalRevenue > 0 ? parseFloat(((parseInt(item.revenue || 0) / totalRevenue) * 100).toFixed(2)) : 0
+    orderItems.forEach((item) => {
+      const categoryId = item?.product?.category?.id || 0;
+      const categoryName = item?.product?.category?.name || 'Chưa phân loại';
+      const orderId = item.order_id;
+      const revenue = Number(item.total || 0);
+      const quantity = Number(item.quantity || 0);
+
+      if (!categoryMap.has(categoryId)) {
+        categoryMap.set(categoryId, {
+          category_id: categoryId,
+          category_name: categoryName,
+          revenue: 0,
+          quantity: 0,
+          orderIds: new Set(),
+        });
+      }
+
+      const bucket = categoryMap.get(categoryId);
+      bucket.revenue += revenue;
+      bucket.quantity += quantity;
+
+      if (orderId) {
+        bucket.orderIds.add(orderId);
+      }
+    });
+
+    const pieDataRaw = Array.from(categoryMap.values()).map((item) => ({
+      category_id: item.category_id,
+      category_name: item.category_name,
+      revenue: item.revenue,
+      orders: item.orderIds.size,
+      quantity: item.quantity,
     }));
+
+    const totalRevenue = pieDataRaw.reduce((sum, item) => sum + item.revenue, 0);
+    const totalOrders = pieDataRaw.reduce((sum, item) => sum + item.orders, 0);
+    const totalQuantity = pieDataRaw.reduce((sum, item) => sum + item.quantity, 0);
+
+    const pieData = pieDataRaw
+      .map((item) => ({
+        ...item,
+        percentage: totalRevenue > 0 ? parseFloat(((item.revenue / totalRevenue) * 100).toFixed(2)) : 0,
+      }))
+      .sort((left, right) => right.revenue - left.revenue);
 
     res.json({
       period,

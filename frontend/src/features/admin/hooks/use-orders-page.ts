@@ -21,9 +21,8 @@ function formatDateTime(value: string) {
 function mapPaymentMethod(value: string) {
   const paymentLabels: Record<string, string> = {
     cash: "Tiền mặt",
-    bank_transfer: "Chuyển khoản",
+    bank_transfer: "Chuyển khoản QR",
     momo: "MoMo",
-    vnpay: "VNPay",
     card: "Thẻ",
   }
 
@@ -94,9 +93,28 @@ export function getOrderStatusClassName(status: string) {
   return statusClassNames[status] || "bg-slate-100 text-slate-700"
 }
 
+export function getNextOrderStatuses(status: string) {
+  switch (status) {
+    case "pending":
+      return ["confirmed", "cancelled"]
+    case "confirmed":
+      return ["shipping"]
+    case "shipping":
+      return ["delivered"]
+    case "delivered":
+      return ["completed"]
+    case "completed":
+    case "cancelled":
+      return []
+    default:
+      return []
+  }
+}
+
 export function useOrdersPage() {
   const [orders, setOrders] = useState<OrderView[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [keyword, setKeyword] = useState("")
   const [selectedStatus, setSelectedStatus] = useState("all")
@@ -162,9 +180,37 @@ export function useOrdersPage() {
     setSelectedStatus("all")
   }
 
+  const updateOrderStatus = async (orderId: number, nextStatus: string) => {
+    try {
+      setIsUpdatingStatus(true)
+      setError(null)
+
+      await api.patch(`/api/orders/${orderId}/status`, {
+        status: nextStatus,
+      })
+
+      setOrders((currentOrders) =>
+        currentOrders.map((order) =>
+          order.id === orderId
+            ? {
+                ...order,
+                status: nextStatus,
+              }
+            : order,
+        ),
+      )
+    } catch (updateError) {
+      console.error("Update order status error:", updateError)
+      setError("Không cập nhật được trạng thái giao dịch. Vui lòng thử lại.")
+    } finally {
+      setIsUpdatingStatus(false)
+    }
+  }
+
   return {
     orders,
     isLoading,
+    isUpdatingStatus,
     error,
     keyword,
     setKeyword,
@@ -177,5 +223,6 @@ export function useOrdersPage() {
     pagination,
     totalPages,
     resetFilters,
+    updateOrderStatus,
   }
 }

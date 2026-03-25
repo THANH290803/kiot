@@ -1,249 +1,176 @@
-# Kiot - Point of Sale System
+# Kiot Monorepo
 
-Hệ thống quản lý điểm bán hàng với kiến trúc monorepo (backend + frontend).
+Monorepo hệ thống POS gồm:
+- Backend API (`Node.js + Express + Sequelize + MySQL`)
+- Frontend (`Next.js App Router + TypeScript`)
 
-## 🏗️ Cấu trúc dự án
+## Cấu trúc dự án
 
-```
-kiot-monorepo/
-├── backend/                    # Node.js + Express API
-│   ├── src/                   # Source code
-│   ├── migrations/            # Database migrations
-│   ├── config/                # Configuration files
+```text
+kiot/
+├── backend/
+│   ├── src/
+│   ├── migrations/
+│   ├── docs/
 │   ├── package.json
 │   └── Dockerfile
-├── frontend/                  # Next.js + TypeScript (bạn tự setup)
-│   └── package.json          # Basic package.json để bắt đầu
-├── docker-compose.yml         # Docker orchestration
-├── package.json              # Root package.json
+├── frontend/
+│   ├── src/
+│   ├── docs/
+│   ├── package.json
+│   └── ARCHITECTURE.md
+├── docker-compose.yml
+├── package.json
 └── README.md
 ```
 
-## 🚀 Cài đặt và chạy
+## Yêu cầu môi trường
 
-### Cách 1: Sử dụng Docker (Khuyến nghị)
+- Node.js `>= 18`
+- npm `>= 8`
+- MySQL `8.x`
 
-```bash
-# 1. Clone repository
-git clone <your-repo-url>
-cd kiot
+## Chạy local nhanh
 
-# 2. Tạo file .env cho backend
-cp backend/.env.example backend/.env
-
-# 3. Chạy tất cả services
-docker-compose up --build
-
-# Services sẽ chạy trên:
-# - Frontend: http://localhost:3000
-# - Backend API: http://localhost:3001
-# - Database: localhost:3306
-# - phpMyAdmin: http://localhost:8080
-```
-
-### Cách 2: Chạy local
+1. Cài dependencies:
 
 ```bash
-# 1. Cài đặt dependencies
-npm run install:all
-
-# 2. Setup database (MySQL)
-# Tạo database 'kiot' và chạy migrations
-
-# 3. Chạy backend
-cd backend
-npm run migrate
-npm run dev
-
-# 4. Setup frontend (bạn tự làm)
-cd frontend
 npm install
-# Sau đó tạo cấu trúc Next.js + TypeScript theo ý muốn
-npm run dev
+npm install --workspace=backend
+npm install --workspace=frontend
 ```
 
-## 📋 API Documentation
+2. Tạo database MySQL (ví dụ: `kiot`) và cấu hình `backend/.env`.
 
-Backend cung cấp API documentation tại: `http://localhost:3001/api-docs`
-
-### Các API chính:
-
-#### 🔐 Authentication
-- `POST /api/auth/login` - Đăng nhập
-- `POST /api/auth/register` - Đăng ký
-
-#### 📊 Statistics (Riêng biệt)
-- `GET /api/statistics/overview` - Thống kê tổng quan
-- `GET /api/statistics/revenue-bar-chart` - Biểu đồ cột doanh thu
-- `GET /api/statistics/category-revenue-pie` - Biểu đồ tròn danh mục
-
-#### 📦 Products
-- `GET /api/products` - Lấy danh sách sản phẩm (có filter)
-- `POST /api/products` - Tạo sản phẩm mới
-
-#### 🛒 Orders
-- `POST /api/orders` - Tạo đơn hàng với items
-- `GET /api/orders` - Lấy danh sách đơn hàng
-
-#### 👥 Users
-- `GET /api/users` - Lấy danh sách user (có filter role/status)
-
-## 🔧 Cấu hình
-
-### Backend (.env)
-```env
-NODE_ENV=development
-APP_PORT=3001
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=password
-DB_NAME=kiot
-JWT_SECRET=your-super-secret-jwt-key
-CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name
-```
-
-### Frontend
-```env
-NEXT_PUBLIC_API_URL=http://localhost:3001
-```
-
-## 📊 Tính năng thống kê
-
-### Biểu đồ cột doanh thu
-- Theo giờ: 24 giờ gần nhất
-- Theo ngày: 7 ngày gần nhất
-- Theo tuần: 4 tuần gần nhất
-- Theo tháng: 12 tháng gần nhất
-
-### Biểu đồ tròn danh mục
-- Phân tích tỷ trọng doanh thu theo danh mục sản phẩm
-- Hiển thị phần trăm đóng góp của mỗi danh mục
-
-### Thống kê so sánh
-- So sánh với kỳ trước (giờ/ngày/tuần/tháng)
-- Hiển thị % tăng/giảm
-- Trend indicators (lên/xuống)
-
-## 🎨 Frontend Setup (Tự làm)
-
-Thư mục `frontend/` đã có sẵn `package.json` cơ bản. Bạn có thể:
-
-### 1. Khởi tạo Next.js với TypeScript:
-```bash
-cd frontend
-npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*"
-```
-
-### 2. Cài đặt thêm dependencies:
-```bash
-npm install axios @tanstack/react-query react-hot-toast recharts lucide-react
-npm install -D @types/node tailwindcss-animate
-```
-
-### 3. Cấu hình API:
-- Tạo file `src/lib/api.ts` để connect với backend
-- Sử dụng `NEXT_PUBLIC_API_URL=http://localhost:3001` trong `.env.local`
-
-### 4. Cấu trúc gợi ý:
-```
-frontend/src/
-├── app/           # Next.js App Router
-├── components/    # UI Components
-├── lib/          # Utilities & API client
-├── hooks/        # Custom React hooks
-└── types/        # TypeScript types
-```
-
-## 🛠️ Công nghệ sử dụng
-
-### Backend
-- **Node.js** + **Express.js**
-- **Sequelize ORM** + **MySQL**
-- **JWT Authentication**
-- **Cloudinary** cho upload ảnh
-- **Swagger** documentation
-
-### Frontend (tự setup)
-- **Next.js 14** + **TypeScript**
-- **Tailwind CSS** + **Custom UI components**
-- **Axios** + **React Query** cho API calls
-- **Recharts** cho biểu đồ thống kê
-- **React Hot Toast** cho notifications
-
-### Frontend (tự setup)
-- **Next.js 14** + **TypeScript**
-- **Tailwind CSS** (khuyến nghị)
-- **React Query** cho state management
-- **Recharts** cho biểu đồ
-
-### DevOps
-- **Docker** + **Docker Compose**
-- **ESLint** + **Prettier**
-- **Nodemon** cho development
-
-## 📝 Scripts hữu ích
+3. Chạy migrations:
 
 ```bash
-# Chạy tất cả services
-npm run dev
-
-# Chỉ chạy backend
-npm run dev:backend
-
-# Chỉ chạy frontend
-npm run dev:frontend
-
-# Build production
-npm run build
-
-# Migrate database
 npm run migrate
-
-# Seed database
-npm run seed
 ```
 
-## 🔒 Bảo mật
+4. Chạy backend + frontend:
 
-- JWT token authentication
-- Password hashing với bcrypt
-- CORS protection
-- Rate limiting
-- Input validation với Joi
-
-## 📚 API Response Format
-
-```json
-{
-  "success": true,
-  "data": { /* response data */ },
-  "message": "Success message",
-  "pagination": {
-    "total": 100,
-    "page": 1,
-    "limit": 10,
-    "totalPages": 10
-  }
-}
+```bash
+npm run dev
 ```
 
-## 🤝 Đóng góp
+## URLs mặc định
 
-1. Fork project
-2. Tạo feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Tạo Pull Request
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:3001`
+- Health: `http://localhost:3001/health`
+- Swagger: `http://localhost:3001/api/docs`
 
-## 📄 License
+## Scripts root
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+```bash
+npm run dev           # chạy backend + frontend
+npm run dev:backend   # chạy backend
+npm run dev:frontend  # chạy frontend
+npm run build         # build frontend
+npm run start         # start backend + frontend
+npm run migrate       # chạy migrations backend
+npm run seed          # chạy seeders backend
+```
 
-## 📞 Liên hệ
+## Docker
 
-- Email: your-email@example.com
-- GitHub: [your-github](https://github.com/your-github)
+Repo hiện có:
+- `backend/Dockerfile`
+- `docker-compose.yml` (backend + frontend + mysql + phpmyadmin)
 
----
+Lưu ý:
+- `docker-compose.yml` đang khai báo service frontend dùng `frontend/Dockerfile`.
+- Hiện repo chưa có `frontend/Dockerfile`, nên compose full sẽ lỗi build frontend cho đến khi bổ sung file này.
 
-**Lưu ý**: Frontend folder hiện tại chỉ có cấu trúc cơ bản. Bạn cần tự setup giao diện Next.js + TypeScript theo yêu cầu của mình.
+## Backend API
+
+Base URL: `http://localhost:3001/api`
+
+Nhóm endpoint chính:
+- `auth`: login, logout
+- `users`: CRUD user, đổi trạng thái
+- `roles`, `permission-groups`, `permissions`: quản lý phân quyền
+- `categories`, `brands`, `colors`, `sizes`: danh mục thuộc tính
+- `customers`: CRUD + tìm kiếm + phân trang
+- `products`, `product-variants`, `images`: quản lý hàng hóa + ảnh
+- `orders`, `order-items`: quản lý đơn hàng
+- `statistics`: báo cáo/tổng quan
+- `payments`: Bank QR create/confirm
+
+Chi tiết request/response xem trên Swagger: `http://localhost:3001/api/docs`
+
+## Frontend
+
+Frontend chia module theo route group:
+- `src/app/admin/*`: admin dashboard
+- `src/app/user/*`: storefront
+- `src/features/admin/*`: hooks/services/components admin
+- `src/features/user/*`: hooks/providers/components user
+- `src/shared/*`: API client, providers, utils, types dùng chung
+
+Route nổi bật:
+- `/` landing page
+- `/admin/login`
+- `/admin/dashboard`, `/admin/products`, `/admin/orders`, `/admin/reports`, ...
+- `/user/home`, `/user/shop`, `/user/cart`, `/user/checkout`, `/user/profile`
+
+## Biến môi trường frontend
+
+```env
+NEXT_PUBLIC_API_URL=
+NEXT_PUBLIC_API_URL_QA=
+NEXT_PUBLIC_APP_NAME=
+NEXT_PUBLIC_APP_VERSION=
+```
+
+Logic base URL trong `frontend/src/shared/lib/api/client.ts`:
+- Development: ưu tiên `NEXT_PUBLIC_API_URL`
+- Production: ưu tiên `NEXT_PUBLIC_API_URL_QA`, fallback `NEXT_PUBLIC_API_URL`
+
+## Biến môi trường backend
+
+```env
+APP_PORT=
+JWT_SECRET=
+
+DB_HOST=
+DB_PORT=
+DB_USER=
+DB_PASSWORD=
+DB_NAME=
+DB_DIALECT=
+DB_TIMEZONE=
+
+CLOUDINARY_URL=
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+CLOUDINARY_FOLDER=
+API_KEY=
+API_SECRET=
+
+BANK_QR_BIN=
+BANK_QR_ACCOUNT_NO=
+BANK_QR_ACCOUNT_NAME=
+BANK_QR_BANK_NAME=
+BANK_QR_TEMPLATE=
+BANK_QR_DEFAULT_CONTENT=
+```
+
+## CI/CD
+
+Workflow: `.github/workflows/ci-kiot.yml`
+
+- Push `develop` hoặc `main` -> install deps, test backend, build frontend
+- `develop` -> verify deploy DEV
+- `main` -> production deploy status job
+
+## Tài liệu chi tiết
+
+Frontend:
+- `frontend/docs/README.md`
+- `frontend/ARCHITECTURE.md`
+
+Backend:
+- `backend/docs/README.md`

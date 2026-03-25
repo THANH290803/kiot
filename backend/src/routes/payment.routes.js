@@ -8,15 +8,15 @@ const router = express.Router();
  * @swagger
  * tags:
  *   name: Payments
- *   description: Payment & VNPAY
+ *   description: Payment & Bank QR
  */
 
 /**
  * @swagger
- * /api/payments/vnpay/create:
+ * /api/payments/bank-qr/create:
  *   post:
  *     tags: [Payments]
- *     summary: Tạo link thanh toán VNPAY
+ *     summary: Tạo thông tin QR ngân hàng để chuyển khoản
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -28,72 +28,41 @@ const router = express.Router();
  *             properties:
  *               order_id:
  *                 type: integer
- *                 description: ID đơn hàng đã tạo sẵn. Không bắt buộc nếu thanh toán trước rồi mới tạo đơn.
+ *                 description: ID đơn hàng đã tạo sẵn
  *               amount:
  *                 type: integer
- *                 description: Số tiền thanh toán. Bắt buộc nếu không truyền order_id.
- *               orderDescription:
+ *                 description: Số tiền thanh toán (nếu không truyền order_id)
+ *               transferContent:
  *                 type: string
- *                 description: Nội dung đơn hàng hiển thị trên VNPay.
- *               orderType:
- *                 type: string
- *                 default: other
- *               language:
- *                 type: string
- *                 default: vn
- *               bankCode:
- *                 type: string
- *                 description: Mã ngân hàng, nếu muốn chỉ định trước.
+ *                 description: Nội dung chuyển khoản hiển thị trên QR
  *     responses:
  *       200:
- *         description: Tạo link thanh toán thành công
+ *         description: Tạo QR thành công
  *       404:
  *         description: Order không tồn tại
  */
-router.post(
-  "/vnpay/create",
-  authMiddleware,
-  paymentController.createVnpayPayment
-);
+router.post("/bank-qr/create", authMiddleware, paymentController.createBankQrPayment);
 
 /**
  * @swagger
- * /api/payments/vnpay/verify-return:
- *   get:
+ * /api/payments/bank-qr/{orderId}/confirm:
+ *   patch:
  *     tags: [Payments]
- *     summary: Xác thực dữ liệu trả về từ VNPay
+ *     summary: Xác nhận đơn đã thanh toán QR
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: integer
  *     responses:
  *       200:
- *         description: Xác thực thành công
- *       400:
- *         description: Chữ ký hoặc dữ liệu không hợp lệ
+ *         description: Xác nhận thành công
+ *       404:
+ *         description: Không tìm thấy đơn hàng
  */
-router.get("/vnpay/verify-return", authMiddleware, paymentController.verifyVnpayReturn);
-
-/**
- * @swagger
- * /api/payments/vnpay/return:
- *   get:
- *     tags: [Payments]
- *     summary: Redirect từ VNPay về frontend
- *     responses:
- *       302:
- *         description: Redirect về frontend return page
- */
-router.get("/vnpay/return", paymentController.vnpayReturnRedirect);
-
-/**
- * @swagger
- * /api/payments/vnpay/ipn:
- *   get:
- *     tags: [Payments]
- *     summary: VNPAY IPN callback
- *     responses:
- *       200:
- *         description: Xử lý IPN từ VNPAY
- */
-router.get("/vnpay/ipn", paymentController.vnpayIPN);
+router.patch("/bank-qr/:orderId/confirm", authMiddleware, paymentController.confirmBankQrPayment);
 
 module.exports = router;

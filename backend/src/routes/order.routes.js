@@ -33,7 +33,7 @@ const router = express.Router();
  *           type: integer
  *         payment_method:
  *           type: string
- *           enum: [cash, bank_transfer, momo, vnpay, card]
+ *           enum: [cash, bank_transfer, momo, card]
  *         status:
  *           type: string
  *           enum: [pending, confirmed, shipping, delivered, completed, cancelled]
@@ -102,7 +102,7 @@ const router = express.Router();
  *             $ref: '#/components/schemas/CreateOrderItemRequest'
  *         payment_method:
  *           type: string
- *           enum: [cash, bank_transfer, momo, vnpay, card]
+ *           enum: [cash, bank_transfer, momo, card]
  *           default: cash
  *         status:
  *           type: string
@@ -139,7 +139,7 @@ const router = express.Router();
  *           type: string
  *         payment_method:
  *           type: string
- *           enum: [cash, bank_transfer, momo, vnpay, card]
+ *           enum: [cash, bank_transfer, momo, card]
  */
 
 // ================= ORDER ROUTES =================
@@ -256,6 +256,42 @@ router.get("/", authMiddleware, orderController.findAll);
  *         description: Order not found
  */
 router.get("/:id", authMiddleware, orderController.findOne);
+
+/**
+ * @swagger
+ * /api/orders/{id}/status:
+ *   patch:
+ *     summary: Update order status theo luồng hợp lệ
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [pending, confirmed, shipping, delivered, completed, cancelled]
+ *     responses:
+ *       200:
+ *         description: Order status updated successfully
+ *       400:
+ *         description: Invalid status transition
+ *       404:
+ *         description: Order not found
+ */
+router.patch("/:id/status", authMiddleware, orderController.updateStatus);
 
 /**
  * @swagger

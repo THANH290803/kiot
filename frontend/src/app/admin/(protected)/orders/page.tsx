@@ -1,9 +1,15 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { Calendar, Eye, FileDown, Filter, MoreHorizontal, Search } from "lucide-react"
 import { HeaderNav } from "@/features/admin/components/header-nav"
-import { getOrderStatusClassName, getOrderStatusLabel, useOrdersPage } from "@/features/admin/hooks/use-orders-page"
+import {
+  getNextOrderStatuses,
+  getOrderStatusClassName,
+  getOrderStatusLabel,
+  useOrdersPage,
+} from "@/features/admin/hooks/use-orders-page"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -18,11 +24,17 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+
+const ORDER_STATUS_SEQUENCE = ["pending", "confirmed", "shipping", "delivered", "completed", "cancelled"] as const
 
 export default function OrdersPage() {
+  const [openStatusOrderId, setOpenStatusOrderId] = useState<number | null>(null)
+  const [pendingStatus, setPendingStatus] = useState<string>("")
   const {
     orders,
     isLoading,
+    isUpdatingStatus,
     error,
     keyword,
     setKeyword,
@@ -34,6 +46,7 @@ export default function OrdersPage() {
     pagination,
     totalPages,
     resetFilters,
+    updateOrderStatus,
   } = useOrdersPage()
 
   return (
@@ -131,9 +144,81 @@ export default function OrdersPage() {
                     </TableCell>
                     <TableCell className="text-right font-bold">{order.total.toLocaleString("vi-VN")} đ</TableCell>
                     <TableCell className="text-right">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getOrderStatusClassName(order.status)}`}>
-                        {getOrderStatusLabel(order.status)}
-                      </span>
+                      <Popover
+                        open={openStatusOrderId === order.id}
+                        onOpenChange={(nextOpen) => {
+                          setOpenStatusOrderId(nextOpen ? order.id : null)
+                          setPendingStatus(nextOpen ? order.status : "")
+                        }}
+                      >
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${getOrderStatusClassName(order.status)}`}
+                          >
+                            {getOrderStatusLabel(order.status)}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-72 p-0">
+                          <div className="border-b px-4 py-3">
+                            <p className="text-sm font-semibold">Cập nhật trạng thái</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Chỉ được chuyển theo đúng luồng xử lý đơn hàng.
+                            </p>
+                          </div>
+                          <div className="space-y-2 px-4 py-3">
+                            {ORDER_STATUS_SEQUENCE.map((status) => {
+                              const enabledStatuses = getNextOrderStatuses(order.status)
+                              const isDisabled = !enabledStatuses.includes(status)
+
+                              return (
+                                <button
+                                  key={status}
+                                  type="button"
+                                  disabled={isDisabled}
+                                  onClick={() => setPendingStatus(status)}
+                                  className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                                    pendingStatus === status
+                                      ? "border-primary bg-primary/10 text-primary"
+                                      : "border-border"
+                                  } ${
+                                    isDisabled
+                                      ? "cursor-not-allowed opacity-45"
+                                      : "hover:bg-muted"
+                                  }`}
+                                >
+                                  {getOrderStatusLabel(status)}
+                                </button>
+                              )
+                            })}
+                          </div>
+                          <div className="flex justify-end gap-2 border-t bg-muted/20 px-4 py-3">
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setOpenStatusOrderId(null)
+                                setPendingStatus("")
+                              }}
+                            >
+                              Hủy bỏ
+                            </Button>
+                            <Button
+                              disabled={
+                                isUpdatingStatus ||
+                                !pendingStatus ||
+                                !getNextOrderStatuses(order.status).includes(pendingStatus)
+                              }
+                              onClick={async () => {
+                                await updateOrderStatus(order.id, pendingStatus)
+                                setOpenStatusOrderId(null)
+                                setPendingStatus("")
+                              }}
+                            >
+                              Áp dụng
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </TableCell>
                     <TableCell className="text-center">
                       <DropdownMenu>
