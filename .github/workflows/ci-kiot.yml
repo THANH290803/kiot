@@ -65,51 +65,98 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Checking dev backend: ${DEV_BACKEND_URL}/health"
+          target="${DEV_BACKEND_URL}/health"
+          echo "::group::Dev backend health check"
+          echo "Target: ${target}"
 
-          status=$(curl -sS -o /tmp/dev_backend_body.txt -w "%{http_code}" "${DEV_BACKEND_URL}/health")
-          body=$(cat /tmp/dev_backend_body.txt)
+          curl_err_file="/tmp/dev_backend_curl_err.txt"
+          curl_exit=0
+          status=$(curl -sS --max-time 20 -o /tmp/dev_backend_body.txt -w "%{http_code}" "${target}" 2>"${curl_err_file}") || curl_exit=$?
+          body=$(cat /tmp/dev_backend_body.txt 2>/dev/null || true)
+          curl_err=$(cat "${curl_err_file}" || true)
 
-          echo "HTTP status: ${status}"
-          echo "Response body: ${body}"
+          echo "HTTP status: ${status:-no-response}"
+          echo "curl exit code: ${curl_exit}"
+          if [ -n "${curl_err}" ]; then
+            echo "curl stderr: ${curl_err}"
+          fi
+          echo "Response body:"
+          printf '%s\n' "${body:0:500}"
+
+          if [ "${curl_exit}" -ne 0 ] || [ -z "${status:-}" ] || [ "${status}" = "000" ]; then
+            echo "::error::Dev backend is unreachable (${target})."
+            if [ -n "${curl_err}" ]; then
+              echo "::error::curl failed with exit code ${curl_exit}: ${curl_err}"
+            else
+              echo "::error::No HTTP response. Check DNS, TLS, firewall, or service down."
+            fi
+            echo "::endgroup::"
+            exit 1
+          fi
 
           if [ "${status}" != "200" ]; then
-            echo "Backend health check failed: expected HTTP 200, got ${status}"
+            echo "::error::Dev backend health check failed. Expected 200, got ${status}."
+            echo "::endgroup::"
             exit 1
           fi
 
           if [[ "${body}" != *"ok"* ]]; then
-            echo "Backend health check failed: response does not contain 'ok'"
+            echo "::error::Dev backend health check failed. Response does not contain 'ok'."
+            echo "::endgroup::"
             exit 1
           fi
 
           echo "Dev backend check passed"
+          echo "::endgroup::"
 
       - name: Check dev frontend
         shell: bash
         run: |
           set -euo pipefail
-          echo "Checking dev frontend: ${DEV_FRONTEND_URL}"
+          target="${DEV_FRONTEND_URL}"
+          echo "::group::Dev frontend check"
+          echo "Target: ${target}"
 
-          status=$(curl -sS -o /tmp/dev_frontend_body.txt -w "%{http_code}" "${DEV_FRONTEND_URL}")
-          body=$(cat /tmp/dev_frontend_body.txt)
+          curl_err_file="/tmp/dev_frontend_curl_err.txt"
+          curl_exit=0
+          status=$(curl -sS --max-time 20 -o /tmp/dev_frontend_body.txt -w "%{http_code}" "${target}" 2>"${curl_err_file}") || curl_exit=$?
+          body=$(cat /tmp/dev_frontend_body.txt 2>/dev/null || true)
+          curl_err=$(cat "${curl_err_file}" || true)
 
-          echo "HTTP status: ${status}"
+          echo "HTTP status: ${status:-no-response}"
+          echo "curl exit code: ${curl_exit}"
+          if [ -n "${curl_err}" ]; then
+            echo "curl stderr: ${curl_err}"
+          fi
           echo "Response body (first 300 chars):"
-          echo "${body}" | head -c 300
+          printf '%s\n' "${body:0:300}"
           echo
 
+          if [ "${curl_exit}" -ne 0 ] || [ -z "${status:-}" ] || [ "${status}" = "000" ]; then
+            echo "::error::Dev frontend is unreachable (${target})."
+            if [ -n "${curl_err}" ]; then
+              echo "::error::curl failed with exit code ${curl_exit}: ${curl_err}"
+            else
+              echo "::error::No HTTP response. Check DNS, TLS, firewall, or deployment status."
+            fi
+            echo "::endgroup::"
+            exit 1
+          fi
+
           if [ "${status}" -lt 200 ] || [ "${status}" -ge 400 ]; then
-            echo "Frontend check failed: expected 2xx/3xx, got ${status}"
+            echo "::error::Dev frontend check failed. Expected 2xx/3xx, got ${status}."
+            echo "::endgroup::"
             exit 1
           fi
 
           if [[ "${body}" != *"<html"* ]]; then
-            echo "Frontend check failed: response does not look like HTML"
+            echo "::error::Dev frontend check failed. Response does not look like HTML."
+            echo "::endgroup::"
             exit 1
           fi
 
           echo "Dev frontend check passed"
+          echo "::endgroup::"
 
   verify-production:
     name: Production Deployment
@@ -127,48 +174,95 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Checking production backend: ${PROD_BACKEND_URL}/health"
+          target="${PROD_BACKEND_URL}/health"
+          echo "::group::Production backend health check"
+          echo "Target: ${target}"
 
-          status=$(curl -sS -o /tmp/prod_backend_body.txt -w "%{http_code}" "${PROD_BACKEND_URL}/health")
-          body=$(cat /tmp/prod_backend_body.txt)
+          curl_err_file="/tmp/prod_backend_curl_err.txt"
+          curl_exit=0
+          status=$(curl -sS --max-time 20 -o /tmp/prod_backend_body.txt -w "%{http_code}" "${target}" 2>"${curl_err_file}") || curl_exit=$?
+          body=$(cat /tmp/prod_backend_body.txt 2>/dev/null || true)
+          curl_err=$(cat "${curl_err_file}" || true)
 
-          echo "HTTP status: ${status}"
-          echo "Response body: ${body}"
+          echo "HTTP status: ${status:-no-response}"
+          echo "curl exit code: ${curl_exit}"
+          if [ -n "${curl_err}" ]; then
+            echo "curl stderr: ${curl_err}"
+          fi
+          echo "Response body:"
+          printf '%s\n' "${body:0:500}"
+
+          if [ "${curl_exit}" -ne 0 ] || [ -z "${status:-}" ] || [ "${status}" = "000" ]; then
+            echo "::error::Production backend is unreachable (${target})."
+            if [ -n "${curl_err}" ]; then
+              echo "::error::curl failed with exit code ${curl_exit}: ${curl_err}"
+            else
+              echo "::error::No HTTP response. Check DNS, TLS, firewall, or service down."
+            fi
+            echo "::endgroup::"
+            exit 1
+          fi
 
           if [ "${status}" != "200" ]; then
-            echo "Production backend health check failed: expected HTTP 200, got ${status}"
+            echo "::error::Production backend health check failed. Expected 200, got ${status}."
+            echo "::endgroup::"
             exit 1
           fi
 
           if [[ "${body}" != *"ok"* ]]; then
-            echo "Production backend health check failed: response does not contain 'ok'"
+            echo "::error::Production backend health check failed. Response does not contain 'ok'."
+            echo "::endgroup::"
             exit 1
           fi
 
           echo "Production backend check passed"
+          echo "::endgroup::"
 
       - name: Check production frontend
         shell: bash
         run: |
           set -euo pipefail
-          echo "Checking production frontend: ${PROD_FRONTEND_URL}"
+          target="${PROD_FRONTEND_URL}"
+          echo "::group::Production frontend check"
+          echo "Target: ${target}"
 
-          status=$(curl -sS -o /tmp/prod_frontend_body.txt -w "%{http_code}" "${PROD_FRONTEND_URL}")
-          body=$(cat /tmp/prod_frontend_body.txt)
+          curl_err_file="/tmp/prod_frontend_curl_err.txt"
+          curl_exit=0
+          status=$(curl -sS --max-time 20 -o /tmp/prod_frontend_body.txt -w "%{http_code}" "${target}" 2>"${curl_err_file}") || curl_exit=$?
+          body=$(cat /tmp/prod_frontend_body.txt 2>/dev/null || true)
+          curl_err=$(cat "${curl_err_file}" || true)
 
-          echo "HTTP status: ${status}"
+          echo "HTTP status: ${status:-no-response}"
+          echo "curl exit code: ${curl_exit}"
+          if [ -n "${curl_err}" ]; then
+            echo "curl stderr: ${curl_err}"
+          fi
           echo "Response body (first 300 chars):"
-          echo "${body}" | head -c 300
+          printf '%s\n' "${body:0:300}"
           echo
 
+          if [ "${curl_exit}" -ne 0 ] || [ -z "${status:-}" ] || [ "${status}" = "000" ]; then
+            echo "::error::Production frontend is unreachable (${target})."
+            if [ -n "${curl_err}" ]; then
+              echo "::error::curl failed with exit code ${curl_exit}: ${curl_err}"
+            else
+              echo "::error::No HTTP response. Check DNS, TLS, firewall, or deployment status."
+            fi
+            echo "::endgroup::"
+            exit 1
+          fi
+
           if [ "${status}" -lt 200 ] || [ "${status}" -ge 400 ]; then
-            echo "Production frontend check failed: expected 2xx/3xx, got ${status}"
+            echo "::error::Production frontend check failed. Expected 2xx/3xx, got ${status}."
+            echo "::endgroup::"
             exit 1
           fi
 
           if [[ "${body}" != *"<html"* ]]; then
-            echo "Production frontend check failed: response does not look like HTML"
+            echo "::error::Production frontend check failed. Response does not look like HTML."
+            echo "::endgroup::"
             exit 1
           fi
 
           echo "Production frontend check passed"
+          echo "::endgroup::"
