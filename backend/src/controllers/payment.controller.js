@@ -1,73 +1,106 @@
 const db = require("../models");
-const crypto = require("crypto");
-const qs = require("qs");
 
 const Order = db.Order;
 
-// ================= VNPAY CREATE PAYMENT =================
-exports.createVnpayPayment = async (req, res) => {
+function normalizeAmount(value) {
+  const amount = Number(value);
+
+  if (!amount || Number.isNaN(amount) || amount <= 0) {
+    return null;
+  }
+
+  return Math.round(amount);
+}
+
+function buildVietQrImageUrl({ bankBin, accountNo, template, amount, addInfo, accountName }) {
+  const baseUrl = `https://img.vietqr.io/image/${bankBin}-${accountNo}-${template}.png`;
+  const params = new URLSearchParams();
+
+  if (amount) {
+    params.set("amount", String(amount));
+  }
+
+  if (addInfo) {
+    params.set("addInfo", addInfo);
+  }
+
+  if (accountName) {
+    params.set("accountName", accountName);
+  }
+
+  const query = params.toString();
+  return query ? `${baseUrl}?${query}` : baseUrl;
+}
+
+// ================= BANK QR CREATE PAYMENT =================
+exports.createBankQrPayment = async (req, res) => {
   try {
-    const { order_id } = req.body;
+    const { order_id, amount, transferContent, orderDescription } = req.body;
 
-    const order = await Order.findOne({
-      where: { id: order_id, deleted_at: null },
-    });
+    let order = null;
 
-    if (!order) {
-      return res.status(404).json({ message: "Order not found" });
+    if (order_id) {
+      order = await Order.findOne({
+        where: { id: order_id, deleted_at: null },
+      });
+
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
     }
 
-    const tmnCode = process.env.VNP_TMN_CODE;
-    const secretKey = process.env.VNP_HASH_SECRET;
-    const vnpUrl = process.env.VNP_URL;
-    const returnUrl = process.env.VNP_RETURN_URL;
+    const bankBin = process.env.BANK_QR_BIN || process.env.BANK_BIN;
+    const accountNo = process.env.BANK_QR_ACCOUNT_NO || process.env.BANK_ACCOUNT_NO;
+    const accountName = process.env.BANK_QR_ACCOUNT_NAME || process.env.BANK_ACCOUNT_NAME;
+    const bankName = process.env.BANK_QR_BANK_NAME || process.env.BANK_NAME || "Ngân hàng";
+    const template = process.env.BANK_QR_TEMPLATE || "compact2";
 
-    const createDate = new Date()
-      .toISOString()
-      .replace(/[-:TZ.]/g, "")
-      .slice(0, 14);
+    if (!bankBin || !accountNo || !accountName) {
+      return res.status(500).json({
+        message:
+          "Thiếu cấu hình QR ngân hàng. Cần BANK_QR_BIN, BANK_QR_ACCOUNT_NO, BANK_QR_ACCOUNT_NAME.",
+      });
+    }
 
-    const ipAddr =
-      req.headers["x-forwarded-for"] ||
-      req.socket.remoteAddress ||
-      "127.0.0.1";
+    const normalizedAmount = normalizeAmount(order ? order.total_amount : amount);
 
-    let vnpParams = {
-      vnp_Version: "2.1.0",
-      vnp_Command: "pay",
-      vnp_TmnCode: tmnCode,
-      vnp_Locale: "vn",
-      vnp_CurrCode: "VND",
-      vnp_TxnRef: order.order_code,
-      vnp_OrderInfo: `Thanh toan don hang ${order.order_code}`,
-      vnp_OrderType: "other",
-      vnp_Amount: order.total_amount * 100,
-      vnp_ReturnUrl: returnUrl,
-      vnp_IpAddr: ipAddr,
-      vnp_CreateDate: createDate,
-    };
+    if (!normalizedAmount) {
+      return res.status(400).json({ message: "amount phải lớn hơn 0 để tạo QR thanh toán." });
+    }
 
-    // sort params
-    vnpParams = Object.keys(vnpParams)
-      .sort()
-      .reduce((acc, key) => {
-        acc[key] = vnpParams[key];
-        return acc;
-      }, {});
+    const orderCode = order?.order_code || `POS-${Date.now()}`;
+    const contentRaw =
+      transferContent ||
+      orderDescription ||
+      process.env.BANK_QR_DEFAULT_CONTENT ||
+      `Thanh toan don ${orderCode}`;
+    const content = String(contentRaw).slice(0, 120);
 
-    const signData = qs.stringify(vnpParams, { encode: false });
-    const secureHash = crypto
-      .createHmac("sha512", secretKey)
-      .update(Buffer.from(signData))
-      .digest("hex");
+    const qrUrl = buildVietQrImageUrl({
+      bankBin,
+      accountNo,
+      template,
+      amount: normalizedAmount,
+      addInfo: content,
+      accountName,
+    });
 
-    vnpParams.vnp_SecureHash = secureHash;
+    if (order) {
+      await order.update({
+        payment_method: "bank_transfer",
+      });
+    }
 
-    return res.json({
-      payment_url: `${vnpUrl}?${qs.stringify(vnpParams, { encode: false })}`,
-      order_id: order.id,
-      order_code: order.order_code,
-      amount: order.total_amount,
+    return res.status(200).json({
+      order_id: order?.id || null,
+      order_code: orderCode,
+      amount: normalizedAmount,
+      bank_name: bankName,
+      bank_bin: bankBin,
+      account_no: accountNo,
+      account_name: accountName,
+      transfer_content: content,
+      qr_url: qrUrl,
     });
   } catch (error) {
     console.error(error);
@@ -75,54 +108,34 @@ exports.createVnpayPayment = async (req, res) => {
   }
 };
 
-// ================= VNPAY IPN =================
-exports.vnpayIPN = async (req, res) => {
+exports.confirmBankQrPayment = async (req, res) => {
   try {
-    const vnpParams = { ...req.query };
-    const secureHash = vnpParams.vnp_SecureHash;
+    const orderId = Number(req.params.orderId);
 
-    delete vnpParams.vnp_SecureHash;
-    delete vnpParams.vnp_SecureHashType;
-
-    const secretKey = process.env.VNP_HASH_SECRET;
-
-    const sortedParams = Object.keys(vnpParams)
-      .sort()
-      .reduce((acc, key) => {
-        acc[key] = vnpParams[key];
-        return acc;
-      }, {});
-
-    const signData = qs.stringify(sortedParams, { encode: false });
-    const checkHash = crypto
-      .createHmac("sha512", secretKey)
-      .update(Buffer.from(signData))
-      .digest("hex");
-
-    if (secureHash !== checkHash) {
-      return res.json({ RspCode: "97", Message: "Invalid signature" });
+    if (!orderId || Number.isNaN(orderId)) {
+      return res.status(400).json({ message: "orderId không hợp lệ" });
     }
 
     const order = await Order.findOne({
-      where: { order_code: vnpParams.vnp_TxnRef },
+      where: { id: orderId, deleted_at: null },
     });
 
     if (!order) {
-      return res.json({ RspCode: "01", Message: "Order not found" });
+      return res.status(404).json({ message: "Order not found" });
     }
 
-    if (vnpParams.vnp_ResponseCode === "00") {
-      await order.update({
-        status: "paid",
-        payment_method: "vnpay",
-      });
-      return res.json({ RspCode: "00", Message: "Success" });
-    }
+    await order.update({
+      status: "completed",
+      payment_method: "bank_transfer",
+    });
 
-    await order.update({ status: "failed" });
-    return res.json({ RspCode: "00", Message: "Payment failed" });
+    return res.status(200).json({
+      message: "Xác nhận thanh toán QR thành công.",
+      order_id: order.id,
+      order_code: order.order_code,
+    });
   } catch (error) {
     console.error(error);
-    return res.json({ RspCode: "99", Message: "Unknown error" });
+    return res.status(500).json({ message: error.message });
   }
 };

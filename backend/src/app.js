@@ -26,28 +26,38 @@ app.use(express.json());
 ========================= */
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://localhost:3003",
   "http://127.0.0.1:3000",
   "https://kiot-blush.vercel.app",
-  "https://kiot-dev.vercel.app/",
+  "https://kiot-dev.vercel.app",
 ];
 
 app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Cho Postman / curl / server-to-server
-      if (!origin) return callback(null, true);
+    cors({
+        origin: function (origin, callback) {
+            if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+            // allow exact domains
+            if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
 
-      // ❌ KHÔNG throw error
-      return callback(null, false);
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
+            // allow localhost / 127.0.0.1 on any port for local development
+            if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+                return callback(null, true);
+            }
+
+            // allow all Vercel preview domains
+            if (origin.endsWith(".vercel.app")) {
+                return callback(null, true);
+            }
+
+            return callback(null, false);
+        },
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+    })
 );
 
 /* =========================
@@ -102,9 +112,26 @@ app.get("/", (req, res) => {
   res.json({ message: "API running 🚀" });
 });
 
-// ===== Start server =====
-const PORT = process.env.APP_PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`🚀 Backend API running on port ${PORT}`);
-  console.log(`📖 Swagger docs: http://localhost:${PORT}/api/docs`);
-});
+const DEFAULT_PORT = Number(process.env.APP_PORT || 3001);
+const MAX_PORT_ATTEMPTS = 10;
+
+function startServer(port, attempt = 0) {
+  const server = app.listen(port, () => {
+    console.log(`🚀 Backend API running on port ${port}`);
+    console.log(`📖 Swagger docs: http://localhost:${port}/api/docs`);
+  });
+
+  server.on("error", (error) => {
+    if (error.code === "EADDRINUSE" && attempt < MAX_PORT_ATTEMPTS) {
+      const nextPort = port + 1;
+      console.warn(`⚠️ Port ${port} is already in use. Retrying on port ${nextPort}...`);
+      startServer(nextPort, attempt + 1);
+      return;
+    }
+
+    console.error(`❌ Failed to start backend server: ${error.message}`);
+    process.exit(1);
+  });
+}
+
+startServer(DEFAULT_PORT);

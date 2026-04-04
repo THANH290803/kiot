@@ -1,46 +1,48 @@
-name: KIOT CI/CD Pipeline
+name: kiot-ci-cd
 
 on:
   push:
     branches:
       - develop
       - main
+  pull_request:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
 
 env:
-  DEV_BACKEND_URL: "https://kiot-dev.onrender.com"
-  DEV_FRONTEND_URL: "https://kiot-dev.vercel.app"
+  DEV_BACKEND_URL: https://kiot-dev.onrender.com
+  DEV_FRONTEND_URL: https://kiot-dev.vercel.app
+  PROD_BACKEND_URL: https://kiot-7o5h.onrender.com
+  PROD_FRONTEND_URL: https://kiot-blush.vercel.app
 
-  PROD_BACKEND_URL: "https://kiot-7o5h.onrender.com"
-  PROD_FRONTEND_URL: "https://kiot-blush.vercel.app"
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-
-  # =========================
-  # BUILD PROJECT
-  # =========================
-
-  build:
-    name: Build & Test
+  build-test:
+    name: Build and Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
-
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm install
-
-      - name: Install backend deps
-        run: npm install --workspace=backend
-
-      - name: Install frontend deps
-        run: npm install --workspace=frontend
+        run: npm ci
 
       - name: Run backend tests
         run: npm run test --workspace=backend
@@ -48,66 +50,219 @@ jobs:
       - name: Build frontend
         run: npm run build --workspace=frontend
 
-
-  # =========================
-  # DEV DEPLOY CHECK
-  # =========================
-
-  check-dev:
-    name: Verify DEV Deployment
-    needs: build
-    if: github.ref == 'refs/heads/develop'
+  verify-dev:
+    name: Dev Deployment
+    needs: build-test
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
-
-      - name: Wait for Render & Vercel deploy
+      - name: Wait for deployment
         run: sleep 90
 
-      - name: Check DEV backend
+      - name: Check dev backend health
+        shell: bash
         run: |
-          RESPONSE=$(curl -s $DEV_BACKEND_URL/health || true)
+          set -euo pipefail
+          target="${DEV_BACKEND_URL}/health"
+          echo "::group::Dev backend health check"
+          echo "Target: ${target}"
 
-          echo "Backend response:"
-          echo $RESPONSE
+          curl_err_file="/tmp/dev_backend_curl_err.txt"
+          curl_exit=0
+          status=$(curl -sS --max-time 20 -o /tmp/dev_backend_body.txt -w "%{http_code}" "${target}" 2>"${curl_err_file}") || curl_exit=$?
+          body=$(cat /tmp/dev_backend_body.txt 2>/dev/null || true)
+          curl_err=$(cat "${curl_err_file}" || true)
 
-          if [[ $RESPONSE == *"ok"* ]]; then
-            echo "Backend DEV deploy success"
-          else
-            echo "Backend DEV deploy failed"
+          echo "HTTP status: ${status:-no-response}"
+          echo "curl exit code: ${curl_exit}"
+          if [ -n "${curl_err}" ]; then
+            echo "curl stderr: ${curl_err}"
+          fi
+          echo "Response body:"
+          printf '%s\n' "${body:0:500}"
+
+          if [ "${curl_exit}" -ne 0 ] || [ -z "${status:-}" ] || [ "${status}" = "000" ]; then
+            echo "::error::Dev backend is unreachable (${target})."
+            if [ -n "${curl_err}" ]; then
+              echo "::error::curl failed with exit code ${curl_exit}: ${curl_err}"
+            else
+              echo "::error::No HTTP response. Check DNS, TLS, firewall, or service down."
+            fi
+            echo "::endgroup::"
             exit 1
           fi
 
-      - name: Check DEV frontend
-        run: |
-          RESPONSE=$(curl -s $DEV_FRONTEND_URL || true)
-
-          if [[ $RESPONSE == *"<html"* ]]; then
-            echo "Frontend DEV deploy success"
-          else
-            echo "Frontend DEV deploy failed"
+          if [ "${status}" != "200" ]; then
+            echo "::error::Dev backend health check failed. Expected 200, got ${status}."
+            echo "::endgroup::"
             exit 1
           fi
 
+          if [[ "${body}" != *"ok"* ]]; then
+            echo "::error::Dev backend health check failed. Response does not contain 'ok'."
+            echo "::endgroup::"
+            exit 1
+          fi
 
-  # =========================
-  # PRODUCTION DEPLOY
-  # =========================
+          echo "Dev backend check passed"
+          echo "::endgroup::"
 
-  deploy-production:
-    name: Deploy Production
-    needs: build
-    if: github.ref == 'refs/heads/main'
+      - name: Check dev frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="${DEV_FRONTEND_URL}"
+          echo "::group::Dev frontend check"
+          echo "Target: ${target}"
+
+          curl_err_file="/tmp/dev_frontend_curl_err.txt"
+          curl_exit=0
+          status=$(curl -sS --max-time 20 -o /tmp/dev_frontend_body.txt -w "%{http_code}" "${target}" 2>"${curl_err_file}") || curl_exit=$?
+          body=$(cat /tmp/dev_frontend_body.txt 2>/dev/null || true)
+          curl_err=$(cat "${curl_err_file}" || true)
+
+          echo "HTTP status: ${status:-no-response}"
+          echo "curl exit code: ${curl_exit}"
+          if [ -n "${curl_err}" ]; then
+            echo "curl stderr: ${curl_err}"
+          fi
+          echo "Response body (first 300 chars):"
+          printf '%s\n' "${body:0:300}"
+          echo
+
+          if [ "${curl_exit}" -ne 0 ] || [ -z "${status:-}" ] || [ "${status}" = "000" ]; then
+            echo "::error::Dev frontend is unreachable (${target})."
+            if [ -n "${curl_err}" ]; then
+              echo "::error::curl failed with exit code ${curl_exit}: ${curl_err}"
+            else
+              echo "::error::No HTTP response. Check DNS, TLS, firewall, or deployment status."
+            fi
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          if [ "${status}" -lt 200 ] || [ "${status}" -ge 400 ]; then
+            echo "::error::Dev frontend check failed. Expected 2xx/3xx, got ${status}."
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          if [[ "${body}" != *"<html"* ]]; then
+            echo "::error::Dev frontend check failed. Response does not look like HTML."
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          echo "Dev frontend check passed"
+          echo "::endgroup::"
+
+  verify-production:
+    name: Production Deployment
+    needs: build-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment: production
 
     steps:
+      - name: Wait for deployment
+        run: sleep 90
 
-      - name: Production deployment status
+      - name: Check production backend health
+        shell: bash
         run: |
-          echo "=============================="
-          echo "PRODUCTION DEPLOY READY"
-          echo "Backend: $PROD_BACKEND_URL"
-          echo "Frontend: $PROD_FRONTEND_URL"
-          echo "Waiting for approval..."
-          echo "=============================="
+          set -euo pipefail
+          target="${PROD_BACKEND_URL}/health"
+          echo "::group::Production backend health check"
+          echo "Target: ${target}"
+
+          curl_err_file="/tmp/prod_backend_curl_err.txt"
+          curl_exit=0
+          status=$(curl -sS --max-time 20 -o /tmp/prod_backend_body.txt -w "%{http_code}" "${target}" 2>"${curl_err_file}") || curl_exit=$?
+          body=$(cat /tmp/prod_backend_body.txt 2>/dev/null || true)
+          curl_err=$(cat "${curl_err_file}" || true)
+
+          echo "HTTP status: ${status:-no-response}"
+          echo "curl exit code: ${curl_exit}"
+          if [ -n "${curl_err}" ]; then
+            echo "curl stderr: ${curl_err}"
+          fi
+          echo "Response body:"
+          printf '%s\n' "${body:0:500}"
+
+          if [ "${curl_exit}" -ne 0 ] || [ -z "${status:-}" ] || [ "${status}" = "000" ]; then
+            echo "::error::Production backend is unreachable (${target})."
+            if [ -n "${curl_err}" ]; then
+              echo "::error::curl failed with exit code ${curl_exit}: ${curl_err}"
+            else
+              echo "::error::No HTTP response. Check DNS, TLS, firewall, or service down."
+            fi
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          if [ "${status}" != "200" ]; then
+            echo "::error::Production backend health check failed. Expected 200, got ${status}."
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          if [[ "${body}" != *"ok"* ]]; then
+            echo "::error::Production backend health check failed. Response does not contain 'ok'."
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          echo "Production backend check passed"
+          echo "::endgroup::"
+
+      - name: Check production frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="${PROD_FRONTEND_URL}"
+          echo "::group::Production frontend check"
+          echo "Target: ${target}"
+
+          curl_err_file="/tmp/prod_frontend_curl_err.txt"
+          curl_exit=0
+          status=$(curl -sS --max-time 20 -o /tmp/prod_frontend_body.txt -w "%{http_code}" "${target}" 2>"${curl_err_file}") || curl_exit=$?
+          body=$(cat /tmp/prod_frontend_body.txt 2>/dev/null || true)
+          curl_err=$(cat "${curl_err_file}" || true)
+
+          echo "HTTP status: ${status:-no-response}"
+          echo "curl exit code: ${curl_exit}"
+          if [ -n "${curl_err}" ]; then
+            echo "curl stderr: ${curl_err}"
+          fi
+          echo "Response body (first 300 chars):"
+          printf '%s\n' "${body:0:300}"
+          echo
+
+          if [ "${curl_exit}" -ne 0 ] || [ -z "${status:-}" ] || [ "${status}" = "000" ]; then
+            echo "::error::Production frontend is unreachable (${target})."
+            if [ -n "${curl_err}" ]; then
+              echo "::error::curl failed with exit code ${curl_exit}: ${curl_err}"
+            else
+              echo "::error::No HTTP response. Check DNS, TLS, firewall, or deployment status."
+            fi
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          if [ "${status}" -lt 200 ] || [ "${status}" -ge 400 ]; then
+            echo "::error::Production frontend check failed. Expected 2xx/3xx, got ${status}."
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          if [[ "${body}" != *"<html"* ]]; then
+            echo "::error::Production frontend check failed. Response does not look like HTML."
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          echo "Production frontend check passed"
+          echo "::endgroup::"

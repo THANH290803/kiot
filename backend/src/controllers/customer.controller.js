@@ -27,25 +27,23 @@ exports.create = async (req, res) => {
     if (!name)
       return res.status(400).json({ message: "name is required" });
 
-    if (!email)
-      return res.status(400).json({ message: "email is required" });
-
-    if (!password)
-      return res.status(400).json({ message: "password is required" });
+    const normalizedEmail = email || `customer_${Date.now()}@kiot.local`;
+    const normalizedPassword =
+      password || `customer_${phone_number || Date.now()}`;
 
     const existEmail = await Customer.findOne({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (existEmail) {
       return res.status(400).json({ message: "Email already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(normalizedPassword, 10);
 
     const customer = await Customer.create({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       phone_number,
       address,

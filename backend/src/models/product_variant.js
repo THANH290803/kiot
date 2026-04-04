@@ -25,10 +25,6 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
-      avatar: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
-      },
       color_id: {
         type: DataTypes.BIGINT,
         allowNull: false,

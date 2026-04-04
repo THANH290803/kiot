@@ -33,10 +33,10 @@ const router = express.Router();
  *           type: integer
  *         payment_method:
  *           type: string
- *           enum: [cash, bank_transfer, momo, vnpay, card]
+ *           enum: [cash, bank_transfer, momo, card]
  *         status:
  *           type: string
- *           enum: [pending, completed, cancelled]
+ *           enum: [pending, confirmed, shipping, delivered, completed, cancelled]
  *         note:
  *           type: string
  *           nullable: true
@@ -102,11 +102,11 @@ const router = express.Router();
  *             $ref: '#/components/schemas/CreateOrderItemRequest'
  *         payment_method:
  *           type: string
- *           enum: [cash, bank_transfer, momo, vnpay, card]
+ *           enum: [cash, bank_transfer, momo, card]
  *           default: cash
  *         status:
  *           type: string
- *           enum: [pending, completed, cancelled]
+ *           enum: [pending, confirmed, shipping, delivered, completed, cancelled]
  *           default: pending
  *         note:
  *           type: string
@@ -134,12 +134,12 @@ const router = express.Router();
  *       properties:
  *         status:
  *           type: string
- *           enum: [pending, completed, cancelled]
+ *           enum: [pending, confirmed, shipping, delivered, completed, cancelled]
  *         note:
  *           type: string
  *         payment_method:
  *           type: string
- *           enum: [cash, bank_transfer, momo, vnpay, card]
+ *           enum: [cash, bank_transfer, momo, card]
  */
 
 // ================= ORDER ROUTES =================
@@ -176,26 +176,21 @@ router.post("/", authMiddleware, orderController.create);
  * @swagger
  * /api/orders:
  *   get:
- *     summary: Get all orders (DESC, soft-delete filtered). Search by order_code, filter by customer name and status.
+ *     summary: Get all orders (DESC, soft-delete filtered). Search by keyword, filter by status.
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: order_code
+ *         name: keyword
  *         schema:
  *           type: string
- *         description: Search by order code (LIKE)
- *       - in: query
- *         name: customer_name
- *         schema:
- *           type: string
- *         description: Search by customer name (LIKE)
+ *         description: Tìm theo mã đơn hàng hoặc tên khách hàng (LIKE)
  *       - in: query
  *         name: status
  *         schema:
  *           type: string
- *           enum: [pending, completed, cancelled]
+ *           enum: [pending, confirmed, shipping, delivered, completed, cancelled]
  *         description: Filter by order status
  *       - in: query
  *         name: page
@@ -261,6 +256,42 @@ router.get("/", authMiddleware, orderController.findAll);
  *         description: Order not found
  */
 router.get("/:id", authMiddleware, orderController.findOne);
+
+/**
+ * @swagger
+ * /api/orders/{id}/status:
+ *   patch:
+ *     summary: Update order status theo luồng hợp lệ
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [pending, confirmed, shipping, delivered, completed, cancelled]
+ *     responses:
+ *       200:
+ *         description: Order status updated successfully
+ *       400:
+ *         description: Invalid status transition
+ *       404:
+ *         description: Order not found
+ */
+router.patch("/:id/status", authMiddleware, orderController.updateStatus);
 
 /**
  * @swagger

@@ -1,46 +1,52 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect } from "react"
-import api from "@/lib/api"
-
-interface User {
-  username: string
-  storeName?: string
-}
+import { createContext, useContext, useState } from "react"
+import { authService } from "@/features/admin/services/auth.service"
+import type { AuthUser } from "@/shared/types/auth"
 
 interface AuthContextType {
   isAuthenticated: boolean
-  user: User | null
-  login: (username: string, password: string) => Promise<void>
+  user: AuthUser | null
+  login: (username: string, password: string, rememberMe?: boolean) => Promise<void>
   logout: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [initialAuthState] = useState(() => {
+    if (typeof window === "undefined") {
+      return {
+        user: null as AuthUser | null,
+        isAuthenticated: false,
+      }
+    }
 
-  useEffect(() => {
     const token = localStorage.getItem("token")
     const savedUser = localStorage.getItem("user")
 
     if (token && savedUser) {
-      setUser(JSON.parse(savedUser))
-      setIsAuthenticated(true)
+      return {
+        user: JSON.parse(savedUser) as AuthUser,
+        isAuthenticated: true,
+      }
     }
-  }, [])
 
-  const login = async (username: string, password: string) => {
-    const res = await api.post("/api/auth/login", {
-      username,
-      password,
-    })
+    return {
+      user: null as AuthUser | null,
+      isAuthenticated: false,
+    }
+  })
 
-    const { token, user } = res.data
+  const [user, setUser] = useState<AuthUser | null>(initialAuthState.user)
+  const [isAuthenticated, setIsAuthenticated] = useState(initialAuthState.isAuthenticated)
+
+  const login = async (username: string, password: string, rememberMe = false) => {
+    const { token, user } = await authService.login({ username, password })
 
     localStorage.setItem("token", token)
     localStorage.setItem("user", JSON.stringify(user))
+    localStorage.setItem("rememberMe", String(rememberMe))
 
     setUser(user)
     setIsAuthenticated(true)
@@ -49,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     localStorage.removeItem("token")
     localStorage.removeItem("user")
+    localStorage.removeItem("rememberMe")
     setUser(null)
     setIsAuthenticated(false)
   }

@@ -7,6 +7,17 @@ const Customer = db.Customer;
 const User = db.User;
 const Product = db.Product;
 const ProductVariant = db.ProductVariant;
+const Color = db.Color;
+const Size = db.Size;
+
+const orderStatusTransitions = {
+  pending: ["confirmed", "cancelled"],
+  confirmed: ["shipping"],
+  shipping: ["delivered"],
+  delivered: ["completed"],
+  completed: [],
+  cancelled: [],
+};
 
 const includeRelations = [
   {
@@ -36,6 +47,16 @@ const includeRelations = [
           {
             model: Product,
             as: "product",
+            attributes: ["id", "name"],
+          },
+          {
+            model: Color,
+            as: "color",
+            attributes: ["id", "name"],
+          },
+          {
+            model: Size,
+            as: "size",
             attributes: ["id", "name"],
           },
         ],
@@ -222,23 +243,18 @@ exports.create = async (req, res) => {
 // ================= GET ALL (CHƯA XOÁ, SEARCH THEO ORDER_CODE, CUSTOMER NAME) =================
 exports.findAll = async (req, res) => {
   try {
-    const { order_code, customer_name, status, page = 1, limit = 10 } = req.query;
+    const { keyword, order_code, customer_name, status, page = 1, limit = 10 } = req.query;
 
     const where = { deleted_at: null };
     const include = [...includeRelations];
 
-    // Search by order_code
-    if (order_code) {
-      where.order_code = { [Op.like]: `%${order_code}%` };
-    }
+    const normalizedKeyword = keyword || order_code || customer_name;
 
-    // Search by customer name
-    if (customer_name) {
-      include[0] = {
-        ...include[0],
-        where: { name: { [Op.like]: `%${customer_name}%` } },
-        required: true,
-      };
+    if (normalizedKeyword) {
+      where[Op.or] = [
+        { order_code: { [Op.like]: `%${normalizedKeyword}%` } },
+        { "$customer.name$": { [Op.like]: `%${normalizedKeyword}%` } },
+      ];
     }
 
     // Filter by status
@@ -325,6 +341,54 @@ exports.update = async (req, res) => {
     await transaction.commit();
 
     // Fetch updated order
+    const result = await Order.findByPk(order.id, {
+      include: includeRelations,
+    });
+
+    return res.status(200).json(formatOrder(result));
+  } catch (error) {
+    await transaction.rollback();
+    console.error(error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+exports.updateStatus = async (req, res) => {
+  const transaction = await db.sequelize.transaction();
+
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      await transaction.rollback();
+      return res.status(400).json({ message: "status is required" });
+    }
+
+    const order = await Order.findOne({
+      where: { id, deleted_at: null },
+      transaction,
+    });
+
+    if (!order) {
+      await transaction.rollback();
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const allowedNextStatuses = orderStatusTransitions[order.status] || [];
+
+    if (!allowedNextStatuses.includes(status)) {
+      await transaction.rollback();
+      return res.status(400).json({
+        message: `Không thể chuyển trạng thái từ ${order.status} sang ${status}`,
+        current_status: order.status,
+        allowed_statuses: allowedNextStatuses,
+      });
+    }
+
+    await order.update({ status }, { transaction });
+    await transaction.commit();
+
     const result = await Order.findByPk(order.id, {
       include: includeRelations,
     });

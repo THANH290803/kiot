@@ -112,15 +112,15 @@ router.get("/:id", authMiddleware, customerController.findOne);
  *             type: object
  *             required:
  *               - name
- *               - email
- *               - password
  *             properties:
  *               name:
  *                 type: string
  *               email:
  *                 type: string
+ *                 description: Optional. Nếu không gửi, hệ thống tự tạo email nội bộ.
  *               password:
  *                 type: string
+ *                 description: Optional. Nếu không gửi, hệ thống tự tạo mật khẩu nội bộ.
  *               phone_number:
  *                 type: string
  *               address:

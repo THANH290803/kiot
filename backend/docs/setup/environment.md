@@ -1,0 +1,64 @@
+# Environment Variables
+
+Danh sách key backend đang dùng trong code hiện tại.
+
+## App
+
+- `APP_PORT`: port chạy Express (default: `3001`)
+- `JWT_SECRET`: secret ký/verify JWT
+
+## Database
+
+- `DB_HOST`
+- `DB_PORT`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_NAME`
+- `DB_DIALECT`
+- `DB_TIMEZONE`
+
+## Cloudinary
+
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+- `CLOUDINARY_FOLDER`
+- `CLOUDINARY_URL`
+- `API_KEY`
+- `API_SECRET`
+
+## Bank QR
+
+- `BANK_QR_BIN`
+- `BANK_QR_ACCOUNT_NO`
+- `BANK_QR_ACCOUNT_NAME`
+- `BANK_QR_BANK_NAME`
+- `BANK_QR_TEMPLATE`
+- `BANK_QR_DEFAULT_CONTENT`
+
+## Ví dụ tối thiểu local
+
+```env
+APP_PORT=3001
+JWT_SECRET=change-me
+
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=password
+DB_NAME=kiot
+DB_DIALECT=mysql
+DB_TIMEZONE=+07:00
+
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+CLOUDINARY_FOLDER=avatarProduct
+
+BANK_QR_BIN=
+BANK_QR_ACCOUNT_NO=
+BANK_QR_ACCOUNT_NAME=
+BANK_QR_BANK_NAME=
+BANK_QR_TEMPLATE=
+BANK_QR_DEFAULT_CONTENT=Thanh toan don {order_code}
+```

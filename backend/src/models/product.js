@@ -15,6 +15,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
+      avatar: {
+        type: DataTypes.STRING(500),
+        allowNull: true,
+      },
       status: {
         type: DataTypes.TINYINT,
         allowNull: false,

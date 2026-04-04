@@ -1,31 +1,10 @@
 const db = require("../models");
-const cloudinary = require("../utils/cloudinary");
 const { Op } = require("sequelize");
 
 const ProductVariant = db.ProductVariant;
 const Product = db.Product;
 const Color = db.Color;
 const Size = db.Size;
-
-const CLOUDINARY_FOLDER =
-    process.env.CLOUDINARY_FOLDER || "avatarProduct";
-
-/**
- * Upload 1 avatar duy nhất cho product_variant
- * Upload lại => GHI ĐÈ
- */
-async function uploadAvatar(avatar, variantId) {
-  if (!avatar) return null;
-
-  const result = await cloudinary.uploader.upload(avatar, {
-    folder: CLOUDINARY_FOLDER,
-    public_id: `variant_${variantId}`,
-    overwrite: true,
-    resource_type: "image",
-  });
-
-  return result.secure_url;
-}
 
 const includeRelations = [
   { model: Product, as: "product", attributes: ["id", "name"] },
@@ -38,7 +17,7 @@ const formatVariant = (v) => ({
   product_id: v.product_id,
   sku: v.sku,
   price: v.price,
-  avatar: v.avatar,
+  quantity: v.quantity,
   color_id: v.color_id,
   size_id: v.size_id,
   product: v.product,
@@ -110,9 +89,9 @@ exports.findOne = async (req, res) => {
 // ================= CREATE =================
 exports.create = async (req, res) => {
   try {
-    const { product_id, sku, price, color_id, size_id, avatar } = req.body;
+    const { product_id, sku, price, quantity, color_id, size_id } = req.body;
 
-    if (!product_id || price == null || !color_id || !size_id) {
+    if (!product_id || price == null || quantity == null || !color_id || !size_id) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
@@ -120,15 +99,10 @@ exports.create = async (req, res) => {
       product_id,
       sku,
       price,
+      quantity,
       color_id,
       size_id,
     });
-
-    // upload avatar (1 ảnh)
-    if (avatar) {
-      const avatarUrl = await uploadAvatar(avatar, variant.id);
-      await variant.update({ avatar: avatarUrl });
-    }
 
     const result = await ProductVariant.findByPk(variant.id, {
       include: includeRelations,
@@ -154,22 +128,18 @@ exports.update = async (req, res) => {
     const {
       sku,
       price,
+      quantity,
       color_id,
       size_id,
-      avatar,
     } = req.body;
 
     const updateData = {};
 
     if (sku !== undefined) updateData.sku = sku;
     if (price !== undefined) updateData.price = price;
+    if (quantity !== undefined) updateData.quantity = quantity;
     if (color_id !== undefined) updateData.color_id = color_id;
     if (size_id !== undefined) updateData.size_id = size_id;
-
-    // nếu có avatar → ghi đè ảnh cũ
-    if (avatar) {
-      updateData.avatar = await uploadAvatar(avatar, variant.id);
-    }
 
     await variant.update(updateData);
 

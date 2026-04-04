@@ -8,15 +8,15 @@ const router = express.Router();
  * @swagger
  * tags:
  *   name: Payments
- *   description: Payment & VNPAY
+ *   description: Payment & Bank QR
  */
 
 /**
  * @swagger
- * /api/payments/vnpay/create:
+ * /api/payments/bank-qr/create:
  *   post:
  *     tags: [Payments]
- *     summary: Tạo link thanh toán VNPAY
+ *     summary: Tạo thông tin QR ngân hàng để chuyển khoản
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -25,32 +25,44 @@ const router = express.Router();
  *         application/json:
  *           schema:
  *             type: object
- *             required: [order_id]
  *             properties:
  *               order_id:
  *                 type: integer
+ *                 description: ID đơn hàng đã tạo sẵn
+ *               amount:
+ *                 type: integer
+ *                 description: Số tiền thanh toán (nếu không truyền order_id)
+ *               transferContent:
+ *                 type: string
+ *                 description: Nội dung chuyển khoản hiển thị trên QR
  *     responses:
  *       200:
- *         description: Tạo link thanh toán thành công
+ *         description: Tạo QR thành công
  *       404:
  *         description: Order không tồn tại
  */
-router.post(
-  "/vnpay/create",
-  authMiddleware,
-  paymentController.createVnpayPayment
-);
+router.post("/bank-qr/create", authMiddleware, paymentController.createBankQrPayment);
 
 /**
  * @swagger
- * /api/payments/vnpay/ipn:
- *   get:
+ * /api/payments/bank-qr/{orderId}/confirm:
+ *   patch:
  *     tags: [Payments]
- *     summary: VNPAY IPN callback
+ *     summary: Xác nhận đơn đã thanh toán QR
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: integer
  *     responses:
  *       200:
- *         description: Xử lý IPN từ VNPAY
+ *         description: Xác nhận thành công
+ *       404:
+ *         description: Không tìm thấy đơn hàng
  */
-router.get("/vnpay/ipn", paymentController.vnpayIPN);
+router.patch("/bank-qr/:orderId/confirm", authMiddleware, paymentController.confirmBankQrPayment);
 
 module.exports = router;
