@@ -66,48 +66,48 @@ jobs:
         run: |
           set -euo pipefail
           target="${DEV_BACKEND_URL}/health"
-          echo "::group::Dev backend health check"
+          max_attempts=5
+          attempt=1
+          passed=false
+
+          echo "Dev backend health check"
           echo "Target: ${target}"
 
-          curl_err_file="/tmp/dev_backend_curl_err.txt"
-          curl_exit=0
-          status=$(curl -sS --max-time 20 -o /tmp/dev_backend_body.txt -w "%{http_code}" "${target}" 2>"${curl_err_file}") || curl_exit=$?
-          body=$(cat /tmp/dev_backend_body.txt 2>/dev/null || true)
-          curl_err=$(cat "${curl_err_file}" || true)
+          while [ "${attempt}" -le "${max_attempts}" ]; do
+            echo "Attempt ${attempt}/${max_attempts}"
+            curl_err_file="/tmp/dev_backend_curl_err.txt"
+            curl_exit=0
+            status=$(curl -sS --max-time 20 -o /tmp/dev_backend_body.txt -w "%{http_code}" "${target}" 2>"${curl_err_file}") || curl_exit=$?
+            body=$(cat /tmp/dev_backend_body.txt 2>/dev/null || true)
+            curl_err=$(cat "${curl_err_file}" || true)
 
-          echo "HTTP status: ${status:-no-response}"
-          echo "curl exit code: ${curl_exit}"
-          if [ -n "${curl_err}" ]; then
-            echo "curl stderr: ${curl_err}"
-          fi
-          echo "Response body:"
-          printf '%s\n' "${body:0:500}"
-
-          if [ "${curl_exit}" -ne 0 ] || [ -z "${status:-}" ] || [ "${status}" = "000" ]; then
-            echo "::error::Dev backend is unreachable (${target})."
+            echo "HTTP status: ${status:-no-response}"
+            echo "curl exit code: ${curl_exit}"
             if [ -n "${curl_err}" ]; then
-              echo "::error::curl failed with exit code ${curl_exit}: ${curl_err}"
-            else
-              echo "::error::No HTTP response. Check DNS, TLS, firewall, or service down."
+              echo "curl stderr: ${curl_err}"
             fi
-            echo "::endgroup::"
-            exit 1
-          fi
+            echo "Response body (first 500 chars):"
+            printf '%s\n' "${body:0:500}"
 
-          if [ "${status}" != "200" ]; then
-            echo "::error::Dev backend health check failed. Expected 200, got ${status}."
-            echo "::endgroup::"
-            exit 1
-          fi
+            if [ "${curl_exit}" -eq 0 ] && [ "${status}" = "200" ] && [[ "${body}" == *"ok"* ]]; then
+              passed=true
+              break
+            fi
 
-          if [[ "${body}" != *"ok"* ]]; then
-            echo "::error::Dev backend health check failed. Response does not contain 'ok'."
-            echo "::endgroup::"
+            if [ "${attempt}" -lt "${max_attempts}" ]; then
+              echo "Health check not ready, retry after 15s..."
+              sleep 15
+            fi
+            attempt=$((attempt + 1))
+          done
+
+          if [ "${passed}" != "true" ]; then
+            echo "::error::Dev backend health check failed after ${max_attempts} attempts."
+            echo "::error::Expected: HTTP 200 and body contains 'ok'."
             exit 1
           fi
 
           echo "Dev backend check passed"
-          echo "::endgroup::"
 
       - name: Check dev frontend
         shell: bash
