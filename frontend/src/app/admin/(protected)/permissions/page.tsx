@@ -36,7 +36,138 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils"
 
 import { usePermissionGroups } from "@/features/admin/hooks/usePermissionGroups"
-import { usePermissions } from "@/features/admin/hooks/usePermissions"
+import { usePermissions, type Permission } from "@/features/admin/hooks/usePermissions"
+import api from "@/lib/api"
+
+const ADMIN_PERMISSION_TEMPLATES = [
+  {
+    group: "Bảng điều khiển",
+    permissions: [
+      { code: "dashboard.view", name: "Xem bảng điều khiển", description: "Xem số liệu tổng quan hệ thống" },
+    ],
+  },
+  {
+    group: "Sản phẩm",
+    permissions: [
+      { code: "products.view", name: "Xem sản phẩm", description: "Xem danh sách sản phẩm" },
+      { code: "products.create", name: "Thêm sản phẩm", description: "Tạo sản phẩm mới" },
+      { code: "products.update", name: "Sửa sản phẩm", description: "Cập nhật thông tin sản phẩm" },
+      { code: "products.delete", name: "Xóa sản phẩm", description: "Xóa sản phẩm khỏi hệ thống" },
+      { code: "products.publish", name: "Ẩn/hiện sản phẩm", description: "Quản lý trạng thái hiển thị sản phẩm" },
+    ],
+  },
+  {
+    group: "Thuộc tính sản phẩm",
+    permissions: [
+      { code: "variants.view", name: "Xem biến thể", description: "Xem danh sách biến thể sản phẩm" },
+      { code: "variants.create", name: "Thêm biến thể", description: "Tạo biến thể sản phẩm" },
+      { code: "variants.update", name: "Sửa biến thể", description: "Cập nhật biến thể sản phẩm" },
+      { code: "variants.delete", name: "Xóa biến thể", description: "Xóa biến thể sản phẩm" },
+      { code: "categories.manage", name: "Quản lý danh mục", description: "Quản lý danh mục sản phẩm" },
+      { code: "brands.manage", name: "Quản lý thương hiệu", description: "Quản lý thương hiệu sản phẩm" },
+      { code: "colors.manage", name: "Quản lý màu sắc", description: "Quản lý thuộc tính màu sắc" },
+      { code: "sizes.manage", name: "Quản lý kích thước", description: "Quản lý thuộc tính kích thước" },
+    ],
+  },
+  {
+    group: "Đơn hàng",
+    permissions: [
+      { code: "orders.view", name: "Xem đơn hàng", description: "Xem danh sách đơn hàng" },
+      { code: "orders.create", name: "Tạo đơn hàng", description: "Tạo đơn hàng mới" },
+      { code: "orders.update", name: "Sửa đơn hàng", description: "Cập nhật đơn hàng" },
+      { code: "orders.delete", name: "Xóa đơn hàng", description: "Xóa đơn hàng" },
+      { code: "orders.update_status", name: "Cập nhật trạng thái đơn", description: "Thay đổi trạng thái xử lý đơn hàng" },
+      { code: "orders.cancel", name: "Hủy đơn hàng", description: "Thực hiện hủy đơn hàng" },
+      { code: "orders.print", name: "In đơn hàng", description: "In hóa đơn/đơn hàng" },
+    ],
+  },
+  {
+    group: "Khách hàng",
+    permissions: [
+      { code: "customers.view", name: "Xem khách hàng", description: "Xem danh sách khách hàng" },
+      { code: "customers.create", name: "Thêm khách hàng", description: "Tạo thông tin khách hàng" },
+      { code: "customers.update", name: "Sửa khách hàng", description: "Cập nhật thông tin khách hàng" },
+      { code: "customers.delete", name: "Xóa khách hàng", description: "Xóa hồ sơ khách hàng" },
+    ],
+  },
+  {
+    group: "Thanh toán",
+    permissions: [
+      { code: "payments.view", name: "Xem thanh toán", description: "Xem lịch sử thanh toán" },
+      { code: "payments.create", name: "Tạo thanh toán", description: "Khởi tạo giao dịch thanh toán" },
+      { code: "payments.refund", name: "Hoàn tiền", description: "Thực hiện hoàn tiền giao dịch" },
+    ],
+  },
+  {
+    group: "Khuyến mãi",
+    permissions: [
+      { code: "vouchers.view", name: "Xem voucher", description: "Xem danh sách voucher" },
+      { code: "vouchers.create", name: "Tạo voucher", description: "Tạo mới voucher" },
+      { code: "vouchers.update", name: "Sửa voucher", description: "Chỉnh sửa voucher" },
+      { code: "vouchers.delete", name: "Xóa voucher", description: "Xóa voucher" },
+    ],
+  },
+  {
+    group: "Nhân sự",
+    permissions: [
+      { code: "employees.view", name: "Xem nhân viên", description: "Xem danh sách nhân viên" },
+      { code: "employees.create", name: "Thêm nhân viên", description: "Tạo tài khoản nhân viên" },
+      { code: "employees.update", name: "Sửa nhân viên", description: "Cập nhật thông tin nhân viên" },
+      { code: "employees.delete", name: "Xóa nhân viên", description: "Xóa tài khoản nhân viên" },
+      { code: "employees.assign_roles", name: "Gán vai trò", description: "Phân quyền vai trò cho nhân viên" },
+    ],
+  },
+  {
+    group: "Vai trò & quyền hạn",
+    permissions: [
+      { code: "roles.view", name: "Xem vai trò", description: "Xem danh sách vai trò" },
+      { code: "roles.create", name: "Thêm vai trò", description: "Tạo vai trò mới" },
+      { code: "roles.update", name: "Sửa vai trò", description: "Cập nhật vai trò" },
+      { code: "roles.delete", name: "Xóa vai trò", description: "Xóa vai trò" },
+      { code: "roles.assign_permissions", name: "Gán quyền cho vai trò", description: "Gán quyền hạn cho vai trò" },
+      { code: "permissions.view", name: "Xem quyền hạn", description: "Xem danh sách quyền hạn" },
+      { code: "permissions.create", name: "Thêm quyền hạn", description: "Tạo quyền hạn mới" },
+      { code: "permissions.update", name: "Sửa quyền hạn", description: "Cập nhật quyền hạn" },
+      { code: "permissions.delete", name: "Xóa quyền hạn", description: "Xóa quyền hạn" },
+      { code: "permission_groups.manage", name: "Quản lý nhóm quyền", description: "Quản lý nhóm quyền hạn" },
+    ],
+  },
+  {
+    group: "Báo cáo",
+    permissions: [
+      { code: "reports.view", name: "Xem báo cáo", description: "Xem báo cáo kinh doanh" },
+      { code: "reports.export", name: "Xuất báo cáo", description: "Xuất dữ liệu báo cáo" },
+    ],
+  },
+  {
+    group: "Cấu hình hệ thống",
+    permissions: [
+      { code: "settings.view", name: "Xem cấu hình", description: "Xem cấu hình hệ thống" },
+      { code: "settings.update", name: "Sửa cấu hình", description: "Cập nhật cấu hình hệ thống" },
+    ],
+  },
+] as const
+
+const USER_ONLY_GROUP_NAMES = new Set([
+  "giỏ hàng",
+  "tai khoan khach",
+  "tài khoản khách",
+  "nguoi dung",
+  "người dùng",
+  "khach hang online",
+  "khách hàng online",
+])
+
+const USER_ONLY_CODE_PREFIXES = [
+  "cart.",
+  "carts.",
+  "checkout.",
+  "wishlist.",
+  "wishlists.",
+  "profile.",
+  "my_orders.",
+  "orders.self.",
+]
 
 
 function GroupSelector({
@@ -112,17 +243,19 @@ export default function PermissionsPage() {
     updatePermission,
     deletePermission,
     assignGroupToSelected,
-    clearSelection,
+    refetch: refetchPermissions,
   } = usePermissions()
 
-  const { groups } = usePermissionGroups()
+  const { groups, refetch: refetchGroups } = usePermissionGroups()
 
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
-  const [editingPermission, setEditingPermission] = useState<any>(null)
+  const [editingPermission, setEditingPermission] = useState<Permission | null>(null)
   const [isAssignGroupDialogOpen, setIsAssignGroupDialogOpen] = useState(false)
   const [selectedGroup, setSelectedGroup] = useState<number | null>(null)
+  const [isCreatingFullPermissions, setIsCreatingFullPermissions] = useState(false)
+  const [isCleaningUserPermissions, setIsCleaningUserPermissions] = useState(false)
 
 
   /* ================= HANDLERS ================= */
@@ -170,6 +303,150 @@ export default function PermissionsPage() {
     setIsAssignGroupDialogOpen(false)
   }
 
+  const handleCreateFullPermissions = async () => {
+    if (isCreatingFullPermissions) {
+      return
+    }
+
+    setIsCreatingFullPermissions(true)
+
+    try {
+      const groupMap = new Map<string, number>(
+        groups.map((group) => [group.name.trim().toLowerCase(), group.id]),
+      )
+
+      for (const template of ADMIN_PERMISSION_TEMPLATES) {
+        const key = template.group.trim().toLowerCase()
+        if (groupMap.has(key)) {
+          continue
+        }
+
+        const response = await api.post("/api/permission-groups", {
+          name: template.group,
+        })
+        const createdId = Number(response.data?.id)
+        if (Number.isFinite(createdId) && createdId > 0) {
+          groupMap.set(key, createdId)
+        }
+      }
+
+      const existingCodes = new Set(
+        permissions.map((permission) => permission.code.trim().toLowerCase()),
+      )
+
+      let createdCount = 0
+
+      for (const template of ADMIN_PERMISSION_TEMPLATES) {
+        const groupId = groupMap.get(template.group.trim().toLowerCase())
+        if (!groupId) {
+          continue
+        }
+
+        for (const permission of template.permissions) {
+          const normalizedCode = permission.code.trim().toLowerCase()
+          if (existingCodes.has(normalizedCode)) {
+            continue
+          }
+
+          try {
+            await api.post("/api/permissions", {
+              code: permission.code,
+              name: permission.name,
+              description: permission.description,
+              group_id: groupId,
+            })
+
+            existingCodes.add(normalizedCode)
+            createdCount += 1
+          } catch (error: unknown) {
+            const statusCode =
+              typeof error === "object" &&
+              error !== null &&
+              "response" in error
+                ? (error as { response?: { status?: number } }).response?.status
+                : undefined
+            if (statusCode === 409) {
+              existingCodes.add(normalizedCode)
+              continue
+            }
+            throw error
+          }
+        }
+      }
+
+      await Promise.all([refetchPermissions(), refetchGroups()])
+      alert(
+        createdCount > 0
+          ? `Đã thêm ${createdCount} quyền hạn mới.`
+          : "Danh sách quyền hạn đã đầy đủ, không có quyền mới cần thêm.",
+      )
+    } catch (error) {
+      console.error("Create full permissions error:", error)
+      alert("Không thể thêm đầy đủ quyền hạn. Vui lòng thử lại.")
+    } finally {
+      setIsCreatingFullPermissions(false)
+    }
+  }
+
+  const handleCleanupUserPermissions = async () => {
+    if (isCleaningUserPermissions) {
+      return
+    }
+
+    if (!window.confirm("Xóa toàn bộ quyền và nhóm quyền phía user?")) {
+      return
+    }
+
+    setIsCleaningUserPermissions(true)
+
+    try {
+      const userGroupIds = new Set(
+        groups
+          .filter((group) => USER_ONLY_GROUP_NAMES.has(group.name.trim().toLowerCase()))
+          .map((group) => group.id),
+      )
+
+      const permissionsToDelete = permissions.filter((permission) => {
+        const normalizedCode = permission.code.trim().toLowerCase()
+        const belongsToUserGroup =
+          typeof permission.group_id === "number" && userGroupIds.has(permission.group_id)
+        const matchesUserCode = USER_ONLY_CODE_PREFIXES.some((prefix) =>
+          normalizedCode.startsWith(prefix),
+        )
+
+        return belongsToUserGroup || matchesUserCode
+      })
+
+      await Promise.allSettled(
+        permissionsToDelete.map((permission) => api.delete(`/api/permissions/${permission.id}`)),
+      )
+
+      const refreshedGroups = await api.get("/api/permission-groups")
+      const groupList = (refreshedGroups.data?.data ?? refreshedGroups.data ?? []) as Array<{
+        id: number
+        name: string
+      }>
+
+      const groupsToDelete = groupList.filter((group) =>
+        USER_ONLY_GROUP_NAMES.has(group.name.trim().toLowerCase()),
+      )
+
+      await Promise.allSettled(
+        groupsToDelete.map((group) => api.delete(`/api/permission-groups/${group.id}`)),
+      )
+
+      await Promise.all([refetchPermissions(), refetchGroups()])
+      alert(
+        `Đã xóa ${permissionsToDelete.length} quyền user và ${groupsToDelete.length} nhóm quyền user.`,
+      )
+    } catch (error) {
+      console.error("Cleanup user permissions error:", error)
+      alert("Không thể xóa quyền user. Vui lòng thử lại.")
+    } finally {
+      setIsCleaningUserPermissions(false)
+    }
+  }
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -180,48 +457,64 @@ export default function PermissionsPage() {
             <h1 className="text-3xl font-bold text-foreground">Quyền Hạn</h1>
             <p className="text-muted-foreground mt-1">Quản lý các quyền hạn của hệ thống</p>
           </div>
-          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 bg-primary hover:bg-primary/90">
-                <Plus className="h-4 w-4" />
-                Thêm Quyền Hạn
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Thêm Quyền Hạn Mới</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleAdd} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="code">Mã quyền hạn</Label>
-                  <Input id="code" name="code" placeholder="create_user" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="name">Tên quyền hạn</Label>
-                  <Input id="name" name="name" placeholder="Tạo người dùng" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Mô tả</Label>
-                  <Input id="description" name="description" placeholder="Mô tả quyền hạn..." />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="group">Nhóm quyền hạn</Label>
-                  <GroupSelector
-                    name="group_id"
-                    groups={groups}
-                  />
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAddOpen(false)}>
-                    Hủy
-                  </Button>
-                  <Button type="submit" className="bg-primary hover:bg-primary/90">
-                    Thêm
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="destructive"
+              onClick={handleCleanupUserPermissions}
+              disabled={isCleaningUserPermissions}
+            >
+              {isCleaningUserPermissions ? "Đang xóa quyền user..." : "Xóa quyền user"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleCreateFullPermissions}
+              disabled={isCreatingFullPermissions}
+            >
+              {isCreatingFullPermissions ? "Đang thêm quyền đầy đủ..." : "Thêm đầy đủ quyền hạn"}
+            </Button>
+            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2 bg-primary hover:bg-primary/90">
+                  <Plus className="h-4 w-4" />
+                  Thêm Quyền Hạn
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Thêm Quyền Hạn Mới</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleAdd} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="code">Mã quyền hạn</Label>
+                    <Input id="code" name="code" placeholder="create_user" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Tên quyền hạn</Label>
+                    <Input id="name" name="name" placeholder="Tạo người dùng" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Mô tả</Label>
+                    <Input id="description" name="description" placeholder="Mô tả quyền hạn..." />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="group">Nhóm quyền hạn</Label>
+                    <GroupSelector
+                      name="group_id"
+                      groups={groups}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsAddOpen(false)}>
+                      Hủy
+                    </Button>
+                    <Button type="submit" className="bg-primary hover:bg-primary/90">
+                      Thêm
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <Card>

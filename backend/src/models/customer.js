@@ -57,6 +57,20 @@ module.exports = (sequelize, DataTypes) => {
             foreignKey: "customer_id",
             as: "orders",
         });
+        Customer.hasMany(models.CustomerVoucher, {
+            foreignKey: "customer_id",
+            as: "customerVouchers",
+        });
+        Customer.belongsToMany(models.Voucher, {
+            through: models.CustomerVoucher,
+            foreignKey: "customer_id",
+            otherKey: "voucher_id",
+            as: "vouchers",
+        });
+        Customer.hasOne(models.Cart, {
+            foreignKey: "customer_id",
+            as: "cart",
+        });
     };
 
   return Customer;

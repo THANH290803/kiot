@@ -10,7 +10,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { api } from "@/lib/api"
-import { getOrderStatusClassName, getOrderStatusLabel } from "@/features/admin/hooks/use-orders-page"
+import {
+  getOrderChannelClassName,
+  getOrderChannelLabel,
+  getOrderStatusClassName,
+  getOrderStatusLabel,
+} from "@/features/admin/hooks/use-orders-page"
 
 interface OrderDetailPageProps {
   params: Promise<{ id: string }>
@@ -22,6 +27,7 @@ interface OrderDetailResponse {
   total_amount: number
   total_quantity: number
   payment_method: string
+  channel: "online" | "in_store" | string
   status: string
   note: string | null
   created_at: string
@@ -74,6 +80,18 @@ function getPaymentLabel(value: string) {
   }
 
   return paymentLabels[value] || value
+}
+
+function getOrderChannelDescription(channel: string) {
+  if (channel === "in_store") {
+    return "Đơn được tạo trực tiếp tại cửa hàng."
+  }
+
+  if (channel === "online") {
+    return "Đơn được tạo từ kênh trực tuyến."
+  }
+
+  return "Nguồn đơn chưa xác định."
 }
 
 export default function OrderDetailPage({ params }: OrderDetailPageProps) {
@@ -174,16 +192,22 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">Chi tiết hóa đơn {order?.order_code || `#${orderId}`}</h1>
-            <p className="text-sm text-muted-foreground">
-              Trạng thái:{" "}
-              {order ? (
+            {order ? (
+              <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Trạng thái:</span>
                 <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getOrderStatusClassName(order.status)}`}>
                   {getOrderStatusLabel(order.status)}
                 </span>
-              ) : (
-                "Đang tải"
-              )}
-            </p>
+                <span>/</span>
+                <span>Nguồn đơn:</span>
+                <Badge className={getOrderChannelClassName(order.channel)}>
+                  {getOrderChannelLabel(order.channel)}
+                </Badge>
+                <span className="text-xs text-muted-foreground">{getOrderChannelDescription(order.channel)}</span>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">Trạng thái: Đang tải</p>
+            )}
           </div>
           <Button className="bg-primary" onClick={handlePrint} disabled={!order}>
             <Printer className="mr-2 h-4 w-4" /> In hóa đơn
@@ -341,6 +365,10 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                   <div>
                     <p className="text-xs font-semibold uppercase text-muted-foreground">Thu ngân</p>
                     <p className="text-sm font-medium">{order.user?.name || "Không rõ"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">Nguồn đơn</p>
+                    <p className="text-sm font-medium">{getOrderChannelLabel(order.channel)}</p>
                   </div>
                   <div>
                     <p className="text-xs font-semibold uppercase text-muted-foreground">Tổng số lượng</p>

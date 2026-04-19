@@ -17,9 +17,13 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BIGINT,
         allowNull: true,
       },
+      customer_voucher_id: {
+        type: DataTypes.BIGINT,
+        allowNull: true,
+      },
       user_id: {
         type: DataTypes.BIGINT,
-        allowNull: false,
+        allowNull: true,
       },
       total_quantity: {
         type: DataTypes.INTEGER,
@@ -35,6 +39,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(30),
         allowNull: false,
         defaultValue: "cash",
+      },
+      channel: {
+        type: DataTypes.STRING(20),
+        allowNull: false,
+        defaultValue: "in_store",
       },
       status: {
         type: DataTypes.STRING(30),
@@ -73,6 +82,10 @@ module.exports = (sequelize, DataTypes) => {
     Order.belongsTo(models.Customer, {
       foreignKey: "customer_id",
       as: "customer",
+    });
+    Order.belongsTo(models.CustomerVoucher, {
+      foreignKey: "customer_voucher_id",
+      as: "customerVoucher",
     });
     Order.belongsTo(models.User, {
       foreignKey: "user_id",

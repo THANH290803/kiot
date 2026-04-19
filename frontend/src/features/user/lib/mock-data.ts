@@ -35,6 +35,7 @@ export interface Order {
 
 export interface CartItem {
     productId: string
+    productVariantId?: number
     name: string
     price: number
     quantity: number

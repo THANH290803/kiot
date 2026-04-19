@@ -16,6 +16,8 @@ import {
   Check,
   Printer,
   Plus,
+  LogOut,
+  TicketPercent,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,11 +25,16 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/app/auth-context"
+import { useRouter } from "next/navigation"
+import { useAdminPermissions } from "@/features/admin/providers/admin-permission-provider"
+import { resolveAdminRoutePermissions } from "@/features/admin/lib/rbac"
 
 interface PosCategory {
   id: number
@@ -83,6 +90,32 @@ interface PosBankQrPayload {
   qr_url: string
 }
 
+interface PosAppliedVoucher {
+  customerVoucherId?: number
+  code: string
+  discountAmount: number
+  discountType: "percent" | "fixed"
+  discountValue: number
+}
+
+interface PosCustomerVoucherRecord {
+  id: number
+  customer_id: number
+  voucher_id: number
+  status: "available" | "used" | "expired"
+  expired_at?: string | null
+  voucher?: {
+    id: number
+    code: string
+    description?: string | null
+    discount_type: "percent" | "fixed"
+    discount_value: number
+    status: "active" | "inactive"
+    start_date: string
+    end_date: string
+  }
+}
+
 interface PosApiImage {
   url: string
   is_primary?: boolean
@@ -108,6 +141,9 @@ interface PosApiProduct {
 }
 
 export default function POSPage() {
+  const router = useRouter()
+  const { logout } = useAuth()
+  const { hasPermission } = useAdminPermissions()
   const [cart, setCart] = useState<PosCartItem[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -132,6 +168,16 @@ export default function POSPage() {
   const [customerSearch, setCustomerSearch] = useState("")
   const [customers, setCustomers] = useState<PosCustomer[]>([])
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false)
+  const [quickNavigatePath, setQuickNavigatePath] = useState("/admin/pos")
+  const [voucherCode, setVoucherCode] = useState("")
+  const [appliedVoucher, setAppliedVoucher] = useState<PosAppliedVoucher | null>(null)
+  const [voucherError, setVoucherError] = useState<string | null>(null)
+  const [isApplyingVoucher, setIsApplyingVoucher] = useState(false)
+  const [customerVouchers, setCustomerVouchers] = useState<PosCustomerVoucherRecord[]>([])
+  const [isLoadingCustomerVouchers, setIsLoadingCustomerVouchers] = useState(false)
+  const [isVoucherPickerOpen, setIsVoucherPickerOpen] = useState(false)
+  const [voucherSearch, setVoucherSearch] = useState("")
+  const [voucherPage, setVoucherPage] = useState(1)
 
   const searchRef = useRef<HTMLDivElement>(null)
   const receiptPrintRef = useRef<HTMLDivElement>(null)
@@ -140,6 +186,25 @@ export default function POSPage() {
     () => [{ id: "all", label: "Tất cả" }, ...categories.map((category) => ({ id: String(category.id), label: category.name }))],
     [categories],
   )
+  const quickNavigateOptions = useMemo(() => {
+    const pages = [
+      { path: "/admin/dashboard", label: "Tổng quan" },
+      { path: "/admin/pos", label: "Bán hàng (POS)" },
+      { path: "/admin/orders", label: "Đơn hàng" },
+      { path: "/admin/products", label: "Sản phẩm" },
+      { path: "/admin/customers", label: "Khách hàng" },
+      { path: "/admin/reports", label: "Báo cáo" },
+      { path: "/admin/settings", label: "Thiết lập" },
+    ]
+
+    return pages.filter((page) => {
+      const required = resolveAdminRoutePermissions(page.path)
+      if (required.length === 0) {
+        return true
+      }
+      return hasPermission(required)
+    })
+  }, [hasPermission])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -301,6 +366,64 @@ export default function POSPage() {
   }, [isCustomerDialogOpen, customerType, customerSearch])
 
   useEffect(() => {
+    if (!customer?.id) {
+      setCustomerVouchers([])
+      setAppliedVoucher(null)
+      setVoucherCode("")
+      setVoucherError(null)
+      return
+    }
+
+    let active = true
+
+    const loadCustomerVouchers = async () => {
+      try {
+        setIsLoadingCustomerVouchers(true)
+        const response = await api.get("/api/customer-vouchers", {
+          params: {
+            customer_id: customer.id,
+            status: "available",
+            page: 1,
+            limit: 100,
+          },
+        })
+
+        if (!active) {
+          return
+        }
+
+        setCustomerVouchers(response.data?.customer_vouchers ?? [])
+      } catch (error) {
+        if (active) {
+          console.error("Load POS customer vouchers error:", error)
+          setCustomerVouchers([])
+        }
+      } finally {
+        if (active) {
+          setIsLoadingCustomerVouchers(false)
+        }
+      }
+    }
+
+    loadCustomerVouchers()
+
+    return () => {
+      active = false
+    }
+  }, [customer?.id])
+
+  useEffect(() => {
+    if (!isVoucherPickerOpen) {
+      setVoucherSearch("")
+      setVoucherPage(1)
+    }
+  }, [isVoucherPickerOpen])
+
+  useEffect(() => {
+    setVoucherPage(1)
+  }, [voucherSearch, customer?.id])
+
+  useEffect(() => {
     if (!showSuggestions || searchQuery.trim().length === 0) {
       setSuggestions([])
       setIsSearching(false)
@@ -419,6 +542,109 @@ export default function POSPage() {
   }
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const discountAmount = appliedVoucher?.discountAmount || 0
+  const finalTotal = Math.max(0, total - discountAmount)
+  const selectedCustomerVoucher =
+    customerVouchers.find((assignment) => assignment.voucher?.code?.toUpperCase() === voucherCode.trim().toUpperCase()) || null
+  const filteredCustomerVouchers = useMemo(() => {
+    const normalizedSearch = voucherSearch.trim().toLowerCase()
+
+    if (!normalizedSearch) {
+      return customerVouchers
+    }
+
+    return customerVouchers.filter((assignment) => {
+      const code = assignment.voucher?.code?.toLowerCase() || ""
+      const description = assignment.voucher?.description?.toLowerCase() || ""
+      const discountValue = String(assignment.voucher?.discount_value || "")
+
+      return code.includes(normalizedSearch) || description.includes(normalizedSearch) || discountValue.includes(normalizedSearch)
+    })
+  }, [customerVouchers, voucherSearch])
+  const voucherPageSize = 6
+  const totalVoucherPages = Math.max(1, Math.ceil(filteredCustomerVouchers.length / voucherPageSize))
+  const paginatedCustomerVouchers = filteredCustomerVouchers.slice((voucherPage - 1) * voucherPageSize, voucherPage * voucherPageSize)
+
+  const formatVoucherDate = (value?: string | null) => {
+    if (!value) {
+      return "Không giới hạn riêng"
+    }
+
+    const normalized = value.includes("T") ? value.split("T")[0] : value
+    const [year, month, day] = normalized.split("-")
+
+    if (!year || !month || !day) {
+      return normalized
+    }
+
+    return `${day}-${month}-${year}`
+  }
+
+  const handleApplyVoucher = async () => {
+    const normalizedCode = voucherCode.trim().toUpperCase()
+    if (!normalizedCode) {
+      setVoucherError("Vui lòng nhập mã voucher.")
+      return
+    }
+
+    if (!customer?.id) {
+      setVoucherError("Vui lòng chọn khách hàng trước khi áp dụng voucher.")
+      return
+    }
+
+    try {
+      setIsApplyingVoucher(true)
+      setVoucherError(null)
+
+      const matchedCustomerVoucher = customerVouchers.find((assignment) =>
+        assignment.voucher?.code?.toUpperCase() === normalizedCode
+      )
+
+      if (!matchedCustomerVoucher?.voucher) {
+        setAppliedVoucher(null)
+        setVoucherError("Khách hàng này không có voucher đó.")
+        return
+      }
+
+      const matchedVoucher = matchedCustomerVoucher.voucher
+
+      const today = new Date()
+      const startDate = new Date(matchedVoucher.start_date)
+      const endDate = new Date(matchedVoucher.end_date)
+
+      if (startDate > today || endDate < today) {
+        setAppliedVoucher(null)
+        setVoucherError("Voucher đã hết hạn hoặc chưa đến thời gian áp dụng.")
+        return
+      }
+
+      const computedDiscount =
+        matchedVoucher.discount_type === "percent"
+          ? Math.min(total, Math.round((total * matchedVoucher.discount_value) / 100))
+          : Math.min(total, Number(matchedVoucher.discount_value || 0))
+
+      setAppliedVoucher({
+        customerVoucherId: matchedCustomerVoucher.id,
+        code: matchedVoucher.code,
+        discountAmount: computedDiscount,
+        discountType: matchedVoucher.discount_type,
+        discountValue: matchedVoucher.discount_value,
+      })
+      setVoucherCode(matchedVoucher.code)
+    } catch (error) {
+      console.error("Apply voucher error:", error)
+      setAppliedVoucher(null)
+      setVoucherError("Không thể kiểm tra voucher. Vui lòng thử lại.")
+    } finally {
+      setIsApplyingVoucher(false)
+    }
+  }
+
+  const handleRemoveVoucher = () => {
+    setAppliedVoucher(null)
+    setVoucherCode("")
+    setVoucherError(null)
+  }
 
   const handleCheckout = async () => {
     if (cart.length === 0 || isCreatingOrder) {
@@ -445,7 +671,9 @@ export default function POSPage() {
 
       const orderPayload = {
         customer_id: customer.id,
+        customer_voucher_id: appliedVoucher?.customerVoucherId,
         user_id: userId,
+        channel: "in_store",
         order_items: cart.map((item) => ({
           product_id: item.productId,
           variant_id: item.variantId,
@@ -475,7 +703,7 @@ export default function POSPage() {
         const paymentResponse = await api.post("/api/payments/bank-qr/create", {
           order_id: response.data?.id,
           amount: total,
-          transferContent: `Thanh toan POS ${response.data?.order_code || ""}`,
+          transferContent: `Thanh toan tai cua hang ${response.data?.order_code || ""}`,
         })
 
         const qrPayload = paymentResponse.data as PosBankQrPayload
@@ -766,9 +994,39 @@ export default function POSPage() {
                 </div>
               )}
             </div>
-            <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground">
-              <Plus className="h-5 w-5" />
-            </Button>
+            <div className="ml-auto flex items-center gap-2">
+              <Select
+                value={quickNavigatePath}
+                onValueChange={(value) => {
+                  setQuickNavigatePath(value)
+                  router.push(value)
+                }}
+              >
+                <SelectTrigger className="w-[190px]">
+                  <SelectValue placeholder="Đi đến trang..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {quickNavigateOptions.map((option) => (
+                    <SelectItem key={option.path} value={option.path}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  logout()
+                  router.push("/admin/login")
+                }}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Đăng xuất
+              </Button>
+              <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground">
+                <Plus className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
           <ScrollArea className="w-full">
             <div className="px-4 pb-2">
@@ -921,13 +1179,98 @@ export default function POSPage() {
 
         <div className="p-4 bg-muted/30 space-y-3">
           {checkoutError ? <p className="text-sm text-destructive">{checkoutError}</p> : null}
+          <div className="rounded-xl border border-dashed border-primary/25 bg-white p-3 space-y-3">
+            <div className="flex items-center gap-2">
+              <TicketPercent className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">Áp dụng voucher</span>
+            </div>
+            {customer ? (
+              <div className="space-y-2">
+                <div className="text-xs text-muted-foreground">
+                  {isLoadingCustomerVouchers
+                    ? "Đang tải voucher của khách hàng..."
+                    : customerVouchers.length > 0
+                      ? `Khách hàng này có ${customerVouchers.length} voucher khả dụng`
+                      : "Khách hàng này chưa có voucher khả dụng"}
+                </div>
+                {customerVouchers.length > 0 ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 flex-1 justify-between rounded-lg border-primary/20 bg-primary/5 px-3 text-left font-normal hover:bg-primary/10"
+                      onClick={() => setIsVoucherPickerOpen(true)}
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-foreground">
+                          {selectedCustomerVoucher?.voucher?.code || "Chọn voucher của khách hàng"}
+                        </div>
+                        <div className="truncate text-[11px] text-muted-foreground">
+                          {selectedCustomerVoucher?.voucher?.description || "Mở popup để xem toàn bộ voucher khả dụng"}
+                        </div>
+                      </div>
+                      <span className="ml-3 inline-flex h-8 shrink-0 items-center rounded-full border border-primary/15 bg-white px-3.5 text-sm font-medium leading-none whitespace-nowrap text-primary">
+                        {customerVouchers.length} mã
+                      </span>
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Chọn khách hàng để xem và áp dụng voucher khả dụng.</p>
+            )}
+            <div className="flex gap-2">
+              <Input
+                value={voucherCode}
+                onChange={(event) => {
+                  setVoucherCode(event.target.value.toUpperCase())
+                  setVoucherError(null)
+                }}
+                placeholder="Nhập mã voucher"
+                className="bg-background"
+              />
+              <Button type="button" variant="outline" onClick={() => void handleApplyVoucher()} disabled={isApplyingVoucher || total <= 0}>
+                {isApplyingVoucher ? "Đang kiểm tra..." : "Áp dụng"}
+              </Button>
+            </div>
+            {voucherError ? <p className="text-xs text-destructive">{voucherError}</p> : null}
+            {appliedVoucher ? (
+              <div className="flex items-center justify-between rounded-lg bg-primary/10 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="bg-primary text-primary-foreground hover:bg-primary">
+                    {appliedVoucher.code}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    Tạm giảm {appliedVoucher.discountAmount.toLocaleString()} đ
+                    {" · "}
+                    {appliedVoucher.discountType === "percent"
+                      ? `${appliedVoucher.discountValue}%`
+                      : `${appliedVoucher.discountValue.toLocaleString()} đ`}
+                  </span>
+                </div>
+                <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground" onClick={handleRemoveVoucher}>
+                  Bỏ
+                </Button>
+              </div>
+            ) : null}
+          </div>
           <div className="flex justify-between text-sm">
             <span>Tổng số lượng ({cart.length}):</span>
             <span className="font-medium">{cart.reduce((s, i) => s + i.quantity, 0)}</span>
           </div>
+          <div className="flex justify-between text-sm">
+            <span>Tạm tính:</span>
+            <span className="font-medium">{total.toLocaleString()} đ</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span>Giảm voucher:</span>
+            <span className={cn("font-medium", discountAmount > 0 && "text-emerald-600")}>
+              -{discountAmount.toLocaleString()} đ
+            </span>
+          </div>
           <div className="flex justify-between text-lg font-bold">
-            <span>Tổng tiền:</span>
-            <span className="text-primary">{total.toLocaleString()} đ</span>
+            <span>Tổng thanh toán:</span>
+            <span className="text-primary">{finalTotal.toLocaleString()} đ</span>
           </div>
 
           <RadioGroup
@@ -977,7 +1320,7 @@ export default function POSPage() {
         </div>
       </div>
 
-      <Dialog open={isCustomerDialogOpen} onOpenChange={setIsCustomerDialogOpen}>
+        <Dialog open={isCustomerDialogOpen} onOpenChange={setIsCustomerDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Thông tin khách hàng</DialogTitle>
@@ -1066,9 +1409,140 @@ export default function POSPage() {
             )}
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+        </Dialog>
 
-      <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
+        <Dialog open={isVoucherPickerOpen} onOpenChange={setIsVoucherPickerOpen}>
+          <DialogContent className="w-[min(92vw,960px)] !max-w-[960px] overflow-hidden border-primary/10 p-0">
+            <DialogHeader className="border-b bg-muted/30 px-6 py-5">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <TicketPercent className="h-4 w-4 text-primary" />
+                Chọn voucher của khách hàng
+              </DialogTitle>
+              <div className="text-sm text-muted-foreground">
+                {customer?.name || "Khách hàng"} có {customerVouchers.length} voucher khả dụng
+              </div>
+            </DialogHeader>
+            <div className="border-b bg-background px-5 py-4">
+              <div className="flex items-center gap-3">
+                <Input
+                  value={voucherSearch}
+                  onChange={(event) => setVoucherSearch(event.target.value)}
+                  placeholder="Tìm theo mã voucher, mô tả hoặc giá trị giảm..."
+                  className="h-10 flex-1 border-primary/15 bg-muted/20 shadow-sm"
+                />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Có thể tìm theo mã như <span className="font-medium text-foreground">VC7XN3HT</span> hoặc nội dung giảm giá.
+              </p>
+            </div>
+            <div className="bg-background p-4">
+              {filteredCustomerVouchers.length === 0 ? (
+                <div className="flex min-h-40 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
+                  Không tìm thấy voucher phù hợp.
+                </div>
+              ) : (
+                <>
+                  <div className="mb-4 flex items-center justify-between rounded-lg border border-dashed border-primary/15 bg-primary/5 px-3 py-2 text-sm">
+                    <span className="text-muted-foreground">
+                      Hiển thị{" "}
+                      <span className="font-medium text-foreground">
+                        {(voucherPage - 1) * voucherPageSize + 1}-{Math.min(voucherPage * voucherPageSize, filteredCustomerVouchers.length)}
+                      </span>{" "}
+                      trên{" "}
+                      <span className="font-medium text-foreground">{filteredCustomerVouchers.length}</span> voucher
+                    </span>
+                    <span className="text-xs text-muted-foreground">Trang {voucherPage}/{totalVoucherPages}</span>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {paginatedCustomerVouchers.map((assignment) => (
+                      <button
+                        key={assignment.id}
+                        type="button"
+                        onClick={() => {
+                          setVoucherCode(assignment.voucher?.code || "")
+                          setVoucherError(null)
+                          setIsVoucherPickerOpen(false)
+                        }}
+                        className={cn(
+                          "flex items-start gap-3 rounded-xl border border-border/70 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:border-primary/30 hover:bg-primary/5",
+                          voucherCode.trim().toUpperCase() === assignment.voucher?.code?.toUpperCase() && "border-primary/40 bg-primary/5",
+                        )}
+                      >
+                        <Check
+                          className={cn(
+                            "mt-1 h-4 w-4 text-primary",
+                            voucherCode.trim().toUpperCase() === assignment.voucher?.code?.toUpperCase()
+                              ? "opacity-100"
+                              : "opacity-0",
+                          )}
+                        />
+                        <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <div className="font-mono text-sm font-semibold text-primary">
+                                {assignment.voucher?.code}
+                              </div>
+                              <span className="inline-flex h-8 items-center rounded-full bg-primary/10 px-3.5 text-sm font-medium leading-none whitespace-nowrap text-primary">
+                                {assignment.status === "available"
+                                  ? "Khả dụng"
+                                  : assignment.status === "used"
+                                    ? "Đã dùng"
+                                    : "Hết hạn"}
+                              </span>
+                            </div>
+                            <div className="mt-1 truncate text-xs text-foreground">
+                              {assignment.voucher?.description || "Không có mô tả"}
+                            </div>
+                            <div className="mt-2 text-[11px] text-muted-foreground">
+                              HSD: {formatVoucherDate(assignment.expired_at || assignment.voucher?.end_date)}
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <div className="text-base font-semibold text-primary">
+                              {assignment.voucher?.discount_type === "percent"
+                                ? `${assignment.voucher?.discount_value}%`
+                                : `${assignment.voucher?.discount_value?.toLocaleString()} đ`}
+                            </div>
+                            <div className="mt-1 text-[11px] text-muted-foreground">
+                              {assignment.voucher?.discount_type === "percent" ? "Giảm theo phần trăm" : "Giảm theo số tiền"}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  {totalVoucherPages > 1 ? (
+                    <div className="mt-4 flex items-center justify-between border-t pt-4">
+                      <div className="text-sm text-muted-foreground">Điều hướng danh sách voucher</div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setVoucherPage((current) => Math.max(1, current - 1))}
+                          disabled={voucherPage === 1}
+                        >
+                          Trước
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setVoucherPage((current) => Math.min(totalVoucherPages, current + 1))}
+                          disabled={voucherPage === totalVoucherPages}
+                        >
+                          Sau
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
         <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[760px]">
           <DialogHeader>
             <DialogTitle className="text-center">HÓA ĐƠN BÁN HÀNG</DialogTitle>

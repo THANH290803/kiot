@@ -2,9 +2,23 @@ const db = require("../models");
 const bcrypt = require("bcryptjs");
 const { Op } = require("sequelize");
 const { Sequelize } = require("sequelize");
-const Order = db.Order;
 
 const Customer = db.Customer;
+
+const CUSTOMER_SPENDING_SUBQUERY = `
+  (
+    SELECT COALESCE(SUM(o.total_amount), 0)
+    FROM orders o
+    WHERE o.customer_id = Customer.id
+      AND o.deleted_at IS NULL
+      AND (
+        o.status = 'completed'
+        OR o.status = 'COMPLETED'
+        OR o.status = '5'
+        OR o.status = 5
+      )
+  )
+`;
 
 // ===== Format response =====
 const formatCustomer = (customer) => ({
@@ -80,43 +94,23 @@ exports.findAll = async (req, res) => {
       attributes: {
         include: [
           [
-            Sequelize.fn(
-                "COALESCE",
-                Sequelize.fn("SUM", Sequelize.col("orders.total_amount")),
-                0
-            ),
+            Sequelize.literal(CUSTOMER_SPENDING_SUBQUERY),
             "total_spending",
           ],
         ],
       },
-      include: [
-        {
-          model: Order,
-          as: "orders",
-          attributes: [],
-          where: {
-            deleted_at: null,
-            status: {
-              [Op.in]: ["PAID", "COMPLETED"],
-            },
-          },
-          required: false,
-        },
-      ],
-      group: ["Customer.id"],
       order: [["id", "DESC"]],
       limit: pageSize,
       offset,
-      subQuery: false,
     });
 
     return res.json({
       customers: rows.map(formatCustomer),
       pagination: {
-        total: count.length,
+        total: count,
         page: currentPage,
         limit: pageSize,
-        totalPages: Math.ceil(count.length / pageSize),
+        totalPages: Math.ceil(count / pageSize),
       },
     });
   } catch (error) {
@@ -135,30 +129,11 @@ exports.findOne = async (req, res) => {
       attributes: {
         include: [
           [
-            db.sequelize.fn(
-                "COALESCE",
-                db.sequelize.fn("SUM", db.sequelize.col("orders.total_amount")),
-                0
-            ),
+            db.sequelize.literal(CUSTOMER_SPENDING_SUBQUERY),
             "total_spending",
           ],
         ],
       },
-      include: [
-        {
-          model: db.Order,
-          as: "orders",
-          attributes: [],
-          where: {
-            deleted_at: null,
-            status: {
-              [Op.in]: ["PAID", "COMPLETED"],
-            },
-          },
-          required: false,
-        },
-      ],
-      group: ["Customer.id"],
     });
 
     if (!customer) {
@@ -176,7 +151,7 @@ exports.findOne = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { password, email } = req.body;
+    const { password, email, phone_number } = req.body;
 
     const customer = await Customer.findOne({
       where: { id, deleted_at: null },
@@ -187,9 +162,29 @@ exports.update = async (req, res) => {
     }
 
     if (email && email !== customer.email) {
-      const existEmail = await Customer.findOne({ where: { email } });
+      const existEmail = await Customer.findOne({
+        where: {
+          email,
+          id: { [Op.ne]: id },
+          deleted_at: null,
+        },
+      });
       if (existEmail) {
-        return res.status(400).json({ message: "Email already exists" });
+        return res.status(409).json({ message: "Email already exists" });
+      }
+    }
+
+    if (phone_number && phone_number !== customer.phone_number) {
+      const existPhone = await Customer.findOne({
+        where: {
+          phone_number,
+          id: { [Op.ne]: id },
+          deleted_at: null,
+        },
+      });
+
+      if (existPhone) {
+        return res.status(409).json({ message: "Phone number already exists" });
       }
     }
 
@@ -202,6 +197,12 @@ exports.update = async (req, res) => {
     return res.status(200).json(formatCustomer(customer));
   } catch (error) {
     console.error(error);
+    if (error.name === "SequelizeUniqueConstraintError") {
+      const duplicatedField = error.errors?.[0]?.path || "field";
+      return res.status(409).json({
+        message: `${duplicatedField} already exists`,
+      });
+    }
     return res.status(500).json({ message: error.message });
   }
 };

@@ -6,6 +6,7 @@ import {
   Search,
   FolderOpen,
   Tag,
+  Ticket,
   Palette,
   User,
   ShieldCheck,
@@ -19,11 +20,14 @@ import { useAuth } from "@/app/auth-context"
 import { usePathname, useRouter } from "next/navigation"
 import { adminNavigation } from "@/features/admin/lib"
 import { cn } from "@/lib/utils"
+import { useAdminPermissions } from "@/features/admin/providers/admin-permission-provider"
+import { resolveAdminRoutePermissions } from "@/features/admin/lib/rbac"
 
 const categoryLinks = [
   { href: "/admin/categories", label: "Danh mục sản phẩm", icon: FolderOpen },
   { href: "/admin/brands", label: "Thương hiệu", icon: Tag },
   { href: "/admin/attributes", label: "Màu sắc & Kích cỡ", icon: Palette },
+  { href: "/admin/vouchers", label: "Voucher", icon: Ticket },
 ]
 
 const permissionLinks = [
@@ -36,14 +40,31 @@ export function HeaderNav() {
   const { user, logout } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const { hasPermission, isLoadingPermissions } = useAdminPermissions()
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`)
   const isGroupActive = (links: { href: string }[]) => links.some((link) => isActive(link.href))
+  const canAccess = (href: string) => {
+    if (isLoadingPermissions) {
+      return false
+    }
+
+    const requiredPermissions = resolveAdminRoutePermissions(href)
+    if (requiredPermissions.length === 0) {
+      return true
+    }
+
+    return hasPermission(requiredPermissions)
+  }
 
   const handleLogout = async () => {
     logout()
     router.push("/admin/login")
   }
+
+  const visibleMainLinks = adminNavigation.filter((item) => canAccess(item.href))
+  const visibleCategoryLinks = categoryLinks.filter((link) => canAccess(link.href))
+  const visiblePermissionLinks = permissionLinks.filter((link) => canAccess(link.href))
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-primary text-primary-foreground shadow-sm">
@@ -55,7 +76,7 @@ export function HeaderNav() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-0.5 overflow-x-auto scrollbar-hide">
-            {adminNavigation.map((item) => (
+            {visibleMainLinks.map((item) => (
               <Button
                 key={item.label}
                 variant="ghost"
@@ -71,54 +92,58 @@ export function HeaderNav() {
                 </Link>
               </Button>
             ))}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    "text-white font-medium text-sm px-2 py-2 whitespace-nowrap flex-shrink-0 hover:bg-white/10",
-                    isGroupActive(categoryLinks) && "bg-white/18 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)]",
-                  )}
-                >
-                  <FolderOpen className="h-4 w-4 mr-1" />
-                  <span className="hidden lg:inline">Danh mục</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                {categoryLinks.map((link) => (
-                  <DropdownMenuItem key={link.href} asChild className={cn(isActive(link.href) && "bg-accent text-accent-foreground")}>
-                    <Link href={link.href} className="cursor-pointer">
-                      <link.icon className="h-4 w-4 mr-2" />
-                      {link.label}
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    "text-white font-medium text-sm px-2 py-2 whitespace-nowrap flex-shrink-0 hover:bg-white/10",
-                    isGroupActive(permissionLinks) && "bg-white/18 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)]",
-                  )}
-                >
-                  <ShieldCheck className="h-4 w-4 mr-1" />
-                  <span className="hidden lg:inline">Quyền & Vai Trò</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                {permissionLinks.map((link) => (
-                  <DropdownMenuItem key={link.href} asChild className={cn(isActive(link.href) && "bg-accent text-accent-foreground")}>
-                    <Link href={link.href} className="cursor-pointer">
-                      <link.icon className="h-4 w-4 mr-2" />
-                      {link.label}
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {visibleCategoryLinks.length > 0 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      "text-white font-medium text-sm px-2 py-2 whitespace-nowrap flex-shrink-0 hover:bg-white/10",
+                      isGroupActive(visibleCategoryLinks) && "bg-white/18 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)]",
+                    )}
+                  >
+                    <FolderOpen className="h-4 w-4 mr-1" />
+                    <span className="hidden lg:inline">Danh mục</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  {visibleCategoryLinks.map((link) => (
+                    <DropdownMenuItem key={link.href} asChild className={cn(isActive(link.href) && "bg-accent text-accent-foreground")}>
+                      <Link href={link.href} className="cursor-pointer">
+                        <link.icon className="h-4 w-4 mr-2" />
+                        {link.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+            {visiblePermissionLinks.length > 0 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      "text-white font-medium text-sm px-2 py-2 whitespace-nowrap flex-shrink-0 hover:bg-white/10",
+                      isGroupActive(visiblePermissionLinks) && "bg-white/18 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)]",
+                    )}
+                  >
+                    <ShieldCheck className="h-4 w-4 mr-1" />
+                    <span className="hidden lg:inline">Quyền & Vai Trò</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  {visiblePermissionLinks.map((link) => (
+                    <DropdownMenuItem key={link.href} asChild className={cn(isActive(link.href) && "bg-accent text-accent-foreground")}>
+                      <Link href={link.href} className="cursor-pointer">
+                        <link.icon className="h-4 w-4 mr-2" />
+                        {link.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </nav>
         </div>
 

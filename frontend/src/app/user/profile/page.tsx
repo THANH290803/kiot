@@ -1,108 +1,43 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/features/user/lib/auth-context'
-import type { CartItem, Order } from '@/features/user/lib/mock-data'
-import { mockOrders } from '@/features/user/lib/mock-data'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Header } from '@/features/user/components/header'
 import { Footer } from '@/features/user/components/footer'
 import { X, Eye } from 'lucide-react'
-
-const ORDERS_PER_PAGE = 5
-
-function getOrdersForUser(userId?: string) {
-    if (!userId) {
-        return []
-    }
-
-    const savedOrders =
-        typeof window !== 'undefined'
-            ? ((JSON.parse(localStorage.getItem('user_orders') || '[]') as Order[]).filter((order) => order.userId === userId))
-            : []
-
-    const mockUserOrders = mockOrders.filter((order) => order.userId === userId)
-
-    return [...mockUserOrders, ...savedOrders]
-}
+import { CartItem, useProfilePage } from '@/features/user/hooks/use-profile-page'
 
 export default function ProfilePage() {
-    const { user, logout } = useAuth()
-    const router = useRouter()
-    const [userOrders, setUserOrders] = useState<Order[]>(() => getOrdersForUser(user?.id))
-    const [currentPage, setCurrentPage] = useState(1)
-    const [filterStatus, setFilterStatus] = useState<string>('all')
-    const [editMode, setEditMode] = useState(false)
-    const [formData, setFormData] = useState({
-        name: user?.name || '',
-        email: user?.email || '',
-        phone: user?.phone || '',
-        address: user?.address || '',
-    })
-    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
-
-    useEffect(() => {
-        if (!user) {
-            router.push('/user/login')
-        }
-    }, [user, router])
-
-    const filteredOrders = filterStatus === 'all'
-        ? userOrders
-        : userOrders.filter(order => order.status === filterStatus)
-
-    const totalPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE)
-    const startIndex = (currentPage - 1) * ORDERS_PER_PAGE
-    const endIndex = startIndex + ORDERS_PER_PAGE
-    const displayedOrders = filteredOrders.slice(startIndex, endIndex)
-
-    const getStatusLabel = (status: string) => {
-        const labels: Record<string, string> = {
-            pending: 'Chờ xác nhận',
-            processing: 'Đang chuẩn bị',
-            shipped: 'Đang giao hàng',
-            delivered: 'Đã giao hàng',
-            cancelled: 'Đã hủy'
-        }
-        return labels[status] || status
-    }
-
-    const getStatusColor = (status: string) => {
-        const colors: Record<string, string> = {
-            pending: 'bg-yellow-100 text-yellow-800',
-            processing: 'bg-blue-100 text-blue-800',
-            shipped: 'bg-purple-100 text-purple-800',
-            delivered: 'bg-green-100 text-green-800',
-            cancelled: 'bg-red-100 text-red-800'
-        }
-        return colors[status] || 'bg-gray-100 text-gray-800'
-    }
-
-    const formatPrice = (price: number) => {
-        return new Intl.NumberFormat('vi-VN', {
-            style: 'currency',
-            currency: 'VND',
-            maximumFractionDigits: 0
-        }).format(price)
-    }
-
-    const handleUpdateProfile = () => {
-        localStorage.setItem('user_profile', JSON.stringify(formData))
-        setEditMode(false)
-        alert('Cập nhật thông tin thành công!')
-    }
-
-    const handleCancelOrder = (orderId: string) => {
-        setUserOrders(userOrders.map(order =>
-            order.id === orderId ? { ...order, status: 'cancelled' } : order
-        ))
-        localStorage.setItem('user_orders', JSON.stringify(userOrders.map(order =>
-            order.id === orderId ? { ...order, status: 'cancelled' } : order
-        )))
-    }
+    const {
+        user,
+        provinces,
+        currentPage,
+        filterStatus,
+        editMode,
+        formData,
+        isSavingProfile,
+        profileMessage,
+        selectedOrder,
+        districtOptions,
+        wardOptions,
+        filteredOrders,
+        totalPages,
+        displayedOrders,
+        setCurrentPage,
+        setFilterStatus,
+        setEditMode,
+        setFormData,
+        setProfileMessage,
+        setSelectedOrder,
+        getStatusLabel,
+        getStatusColor,
+        formatPrice,
+        handleUpdateProfile,
+        handleCancelOrder,
+        handleCancelEditProfile,
+        handleLogout,
+    } = useProfilePage()
 
     return (
         <>
@@ -114,10 +49,7 @@ export default function ProfilePage() {
                         <h1 className="text-4xl font-bold text-foreground">Tài Khoản Của Tôi</h1>
                         <Button
                             variant="outline"
-                            onClick={() => {
-                                logout()
-                                router.push('/user/home')
-                            }}
+                            onClick={handleLogout}
                         >
                             Đăng xuất
                         </Button>
@@ -129,19 +61,33 @@ export default function ProfilePage() {
                             <h2 className="text-xl font-semibold text-foreground">Thông tin cá nhân</h2>
                             <Button
                                 variant={editMode ? "default" : "outline"}
+                                disabled={isSavingProfile}
                                 onClick={() => {
                                     if (editMode) {
                                         handleUpdateProfile()
                                     } else {
+                                        setProfileMessage(null)
                                         setEditMode(true)
                                     }
                                 }}
                             >
-                                {editMode ? 'Lưu' : 'Chỉnh sửa'}
+                                {editMode ? (isSavingProfile ? 'Đang lưu...' : 'Lưu') : 'Chỉnh sửa'}
                             </Button>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {profileMessage && (
+                            <div
+                                className={`mb-4 rounded-md px-4 py-2 text-sm ${
+                                    profileMessage.type === 'success'
+                                        ? 'bg-green-100 text-green-700'
+                                        : 'bg-red-100 text-red-700'
+                                }`}
+                            >
+                                {profileMessage.text}
+                            </div>
+                        )}
+
+                        <div className="space-y-6">
                             <div>
                                 <label className="block text-sm text-muted-foreground mb-2">Tên</label>
                                 {editMode ? (
@@ -156,52 +102,135 @@ export default function ProfilePage() {
                                 )}
                             </div>
 
-                            <div>
-                                <label className="block text-sm text-muted-foreground mb-2">Email</label>
-                                {editMode ? (
-                                    <input
-                                        type="email"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-                                    />
-                                ) : (
-                                    <p className="text-lg font-medium text-foreground">{formData.email}</p>
-                                )}
-                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm text-muted-foreground mb-2">Email</label>
+                                    {editMode ? (
+                                        <input
+                                            type="email"
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                                        />
+                                    ) : (
+                                        <p className="text-lg font-medium text-foreground">{formData.email}</p>
+                                    )}
+                                </div>
 
-                            <div>
-                                <label className="block text-sm text-muted-foreground mb-2">Số điện thoại</label>
-                                {editMode ? (
-                                    <input
-                                        type="text"
-                                        value={formData.phone}
-                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                        className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-                                    />
-                                ) : (
-                                    <p className="text-lg font-medium text-foreground">{formData.phone || 'Chưa cập nhật'}</p>
-                                )}
+                                <div>
+                                    <label className="block text-sm text-muted-foreground mb-2">Số điện thoại</label>
+                                    {editMode ? (
+                                        <input
+                                            type="text"
+                                            value={formData.phone}
+                                            onChange={(e) => {
+                                                const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10)
+                                                setFormData({ ...formData, phone: digitsOnly })
+                                            }}
+                                            inputMode="numeric"
+                                            pattern="\d{10}"
+                                            maxLength={10}
+                                            className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                                        />
+                                    ) : (
+                                        <p className="text-lg font-medium text-foreground">{formData.phone || 'Chưa cập nhật'}</p>
+                                    )}
+                                </div>
                             </div>
 
                             <div>
                                 <label className="block text-sm text-muted-foreground mb-2">Địa chỉ</label>
                                 {editMode ? (
-                                    <input
-                                        type="text"
-                                        value={formData.address}
-                                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                                        className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-                                    />
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <select
+                                                value={formData.cityId}
+                                                onChange={(e) =>
+                                                    setFormData((prev) => ({
+                                                        ...prev,
+                                                        cityId: e.target.value,
+                                                        districtId: '',
+                                                        wardId: '',
+                                                    }))
+                                                }
+                                                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                                            >
+                                                <option value="">Chọn thành phố</option>
+                                                {provinces.map((city) => (
+                                                    <option key={city.Id} value={city.Id}>
+                                                        {city.Name}
+                                                    </option>
+                                                ))}
+                                            </select>
+
+                                            <select
+                                                value={formData.districtId}
+                                                onChange={(e) =>
+                                                    setFormData((prev) => ({
+                                                        ...prev,
+                                                        districtId: e.target.value,
+                                                        wardId: '',
+                                                    }))
+                                                }
+                                                disabled={!formData.cityId}
+                                                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground disabled:opacity-60"
+                                            >
+                                                <option value="">Chọn quận/huyện</option>
+                                                {districtOptions.map((district) => (
+                                                    <option key={district.Id} value={district.Id}>
+                                                        {district.Name}
+                                                    </option>
+                                                ))}
+                                            </select>
+
+                                            <select
+                                                value={formData.wardId}
+                                                onChange={(e) =>
+                                                    setFormData((prev) => ({
+                                                        ...prev,
+                                                        wardId: e.target.value,
+                                                    }))
+                                                }
+                                                disabled={!formData.districtId}
+                                                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground disabled:opacity-60"
+                                            >
+                                                <option value="">Chọn phường/xã</option>
+                                                {wardOptions.map((ward) => (
+                                                    <option key={ward.Id} value={ward.Id}>
+                                                        {ward.Name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <input
+                                            type="text"
+                                            value={formData.detailedAddress}
+                                            onChange={(e) =>
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    detailedAddress: e.target.value,
+                                                }))
+                                            }
+                                            placeholder="Số nhà, tên đường..."
+                                            className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                                        />
+                                    </div>
                                 ) : (
-                                    <p className="text-lg font-medium text-foreground">{formData.address || 'Chưa cập nhật'}</p>
+                                    <p className="text-lg font-medium text-foreground">
+                                        {user?.address || 'Chưa cập nhật'}
+                                    </p>
                                 )}
                             </div>
                         </div>
 
                         {editMode && (
                             <div className="mt-4 flex gap-2">
-                                <Button onClick={() => setEditMode(false)} variant="outline">
+                                <Button
+                                    onClick={handleCancelEditProfile}
+                                    variant="outline"
+                                    disabled={isSavingProfile}
+                                >
                                     Hủy
                                 </Button>
                             </div>
@@ -247,24 +276,24 @@ export default function ProfilePage() {
                                 </button>
                                 <button
                                     onClick={() => {
-                                        setFilterStatus('processing')
+                                        setFilterStatus('confirmed')
                                         setCurrentPage(1)
                                     }}
                                     className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                                        filterStatus === 'processing'
+                                        filterStatus === 'confirmed'
                                             ? 'bg-blue-500 text-white'
                                             : 'border border-border text-foreground hover:bg-secondary'
                                     }`}
                                 >
-                                    Đang chuẩn bị
+                                    Đã xác nhận
                                 </button>
                                 <button
                                     onClick={() => {
-                                        setFilterStatus('shipped')
+                                        setFilterStatus('shipping')
                                         setCurrentPage(1)
                                     }}
                                     className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                                        filterStatus === 'shipped'
+                                        filterStatus === 'shipping'
                                             ? 'bg-purple-500 text-white'
                                             : 'border border-border text-foreground hover:bg-secondary'
                                     }`}
@@ -283,6 +312,32 @@ export default function ProfilePage() {
                                     }`}
                                 >
                                     Đã giao
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setFilterStatus('completed')
+                                        setCurrentPage(1)
+                                    }}
+                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                                        filterStatus === 'completed'
+                                            ? 'bg-emerald-500 text-white'
+                                            : 'border border-border text-foreground hover:bg-secondary'
+                                    }`}
+                                >
+                                    Hoàn thành
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setFilterStatus('cancelled')
+                                        setCurrentPage(1)
+                                    }}
+                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                                        filterStatus === 'cancelled'
+                                            ? 'bg-red-500 text-white'
+                                            : 'border border-border text-foreground hover:bg-secondary'
+                                    }`}
+                                >
+                                    Đã hủy
                                 </button>
                             </div>
                         </div>
@@ -474,7 +529,9 @@ export default function ProfilePage() {
                                     <div>
                                         <p className="text-sm text-muted-foreground">Dự kiến giao</p>
                                         <p className="font-medium text-foreground">
-                                            {new Date(selectedOrder.deliveryDate).toLocaleDateString('vi-VN')}
+                                            {selectedOrder.deliveryDate
+                                                ? new Date(selectedOrder.deliveryDate).toLocaleDateString('vi-VN')
+                                                : 'Đang cập nhật'}
                                         </p>
                                     </div>
                                 </div>

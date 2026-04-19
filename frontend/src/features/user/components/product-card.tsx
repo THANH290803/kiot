@@ -7,6 +7,7 @@ import { useCart } from '@/features/user/lib/cart-context'
 
 interface ProductCardProps {
     id: string
+    productVariantId?: number
     name: string
     price: number
     originalPrice: number
@@ -14,16 +15,21 @@ interface ProductCardProps {
     category: string
     rating: number
     reviews: number
+    defaultSize?: string
+    defaultColor?: string
 }
 
 export function ProductCard({
                                 id,
+                                productVariantId,
                                 name,
                                 price,
                                 originalPrice,
                                 image,
                                 rating,
                                 reviews,
+                                defaultSize,
+                                defaultColor,
                             }: ProductCardProps) {
     const [isFavorite, setIsFavorite] = useState(false)
     const [isAdded, setIsAdded] = useState(false)
@@ -33,11 +39,12 @@ export function ProductCard({
         e.preventDefault()
         addItem({
             productId: id,
+            productVariantId,
             name,
             price,
             quantity: 1,
-            size: 'M',
-            color: 'Trắng',
+            size: defaultSize || 'M',
+            color: defaultColor || 'Trắng',
             image
         })
         setIsAdded(true)

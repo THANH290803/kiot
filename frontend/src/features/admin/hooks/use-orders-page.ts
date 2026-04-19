@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { api } from "@/lib/api"
 import type { OrderApiResponse, OrderView, PaginationState } from "@/features/admin/types/orders-page"
+import { useAdminPermissions } from "@/features/admin/providers/admin-permission-provider"
 
 const defaultPagination: PaginationState = {
   total: 0,
@@ -35,6 +36,7 @@ function mapOrder(order: OrderApiResponse): OrderView {
     code: order.order_code,
     time: formatDateTime(order.created_at),
     customer: order.customer?.name || "Khách lẻ",
+    channel: order.channel || "in_store",
     total: Number(order.total_amount || 0),
     status: order.status,
     payment: mapPaymentMethod(order.payment_method),
@@ -93,6 +95,24 @@ export function getOrderStatusClassName(status: string) {
   return statusClassNames[status] || "bg-slate-100 text-slate-700"
 }
 
+export function getOrderChannelLabel(channel: string) {
+  const channelLabels: Record<string, string> = {
+    online: "Trực tuyến",
+    in_store: "Tại cửa hàng",
+  }
+
+  return channelLabels[channel] || channel
+}
+
+export function getOrderChannelClassName(channel: string) {
+  const channelClassNames: Record<string, string> = {
+    online: "bg-cyan-100 text-cyan-700",
+    in_store: "bg-teal-100 text-teal-700",
+  }
+
+  return channelClassNames[channel] || "bg-slate-100 text-slate-700"
+}
+
 export function getNextOrderStatuses(status: string) {
   switch (status) {
     case "pending":
@@ -112,12 +132,14 @@ export function getNextOrderStatuses(status: string) {
 }
 
 export function useOrdersPage() {
+  const { hasPermission } = useAdminPermissions()
   const [orders, setOrders] = useState<OrderView[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [keyword, setKeyword] = useState("")
   const [selectedStatus, setSelectedStatus] = useState("all")
+  const [selectedChannel, setSelectedChannel] = useState("in_store")
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
   const [pagination, setPagination] = useState<PaginationState>(defaultPagination)
@@ -134,6 +156,7 @@ export function useOrdersPage() {
           params: {
             keyword: keyword || undefined,
             status: selectedStatus !== "all" ? selectedStatus : undefined,
+            channel: selectedChannel,
             page: currentPage,
             limit: rowsPerPage,
           },
@@ -167,7 +190,7 @@ export function useOrdersPage() {
     return () => {
       active = false
     }
-  }, [keyword, selectedStatus, currentPage, rowsPerPage])
+  }, [keyword, selectedStatus, selectedChannel, currentPage, rowsPerPage])
 
   const totalPages = useMemo(
     () => Math.max(1, pagination.totalPages || 1),
@@ -181,6 +204,11 @@ export function useOrdersPage() {
   }
 
   const updateOrderStatus = async (orderId: number, nextStatus: string) => {
+    if (!hasPermission(["orders.update_status", "orders.update", "orders.edit"])) {
+      setError("Bạn không có quyền cập nhật trạng thái đơn hàng.")
+      return
+    }
+
     try {
       setIsUpdatingStatus(true)
       setError(null)
@@ -216,6 +244,8 @@ export function useOrdersPage() {
     setKeyword,
     selectedStatus,
     setSelectedStatus,
+    selectedChannel,
+    setSelectedChannel,
     rowsPerPage,
     setRowsPerPage,
     currentPage,

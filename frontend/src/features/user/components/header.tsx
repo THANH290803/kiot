@@ -1,19 +1,64 @@
 'use client'
 
 import { Heart, ShoppingCart, Menu, X, LogOut, User } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/features/user/lib/auth-context'
 import { useCart } from '@/features/user/lib/cart-context'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { api } from '@/lib/api'
+
+interface Category {
+    id: number
+    name: string
+}
 
 export function Header() {
     const [isOpen, setIsOpen] = useState(false)
+    const [categories, setCategories] = useState<Category[]>([])
     const { user, logout } = useAuth()
     const { items } = useCart()
     const router = useRouter()
+    const pathname = usePathname()
 
     const cartCount = items.reduce((sum, item) => sum + item.quantity, 0)
+
+    useEffect(() => {
+        let isMounted = true
+
+        const fetchCategories = async () => {
+            try {
+                const response = await api.get<Category[]>('/api/categories')
+                if (!isMounted) return
+                const sortedCategories = [...(response.data ?? [])].sort((a, b) => a.id - b.id)
+                setCategories(sortedCategories.slice(0, 4))
+            } catch {
+                if (!isMounted) return
+                setCategories([])
+            }
+        }
+
+        fetchCategories()
+
+        return () => {
+            isMounted = false
+        }
+    }, [])
+
+    useEffect(() => {
+        setIsOpen(false)
+    }, [pathname])
+
+    const navLinks = useMemo(() => {
+        const base = [{ label: 'Cửa hàng', href: '/user/shop' }]
+        const dynamic = categories.map((category) => ({
+            label: category.name,
+            href: `/user/shop?category_id=${category.id}`,
+        }))
+        const about = [{ label: 'Giới thiệu', href: '/user/home#about' }]
+
+        return [...base, ...dynamic, ...about]
+    }, [categories])
 
     const handleLogout = () => {
         logout()
@@ -31,21 +76,19 @@ export function Header() {
 
                     {/* Desktop Navigation */}
                     <nav className="hidden md:flex items-center space-x-8">
-                        <Link href="/user/shop" className="text-foreground hover:text-accent transition-colors">
-                            Cửa hàng
-                        </Link>
-                        <Link href="/user/shop" className="text-foreground hover:text-accent transition-colors">
-                            Áo & Váy
-                        </Link>
-                        <Link href="/user/shop" className="text-foreground hover:text-accent transition-colors">
-                            Quần
-                        </Link>
-                        <Link href="/user/shop" className="text-foreground hover:text-accent transition-colors">
-                            Phụ kiện
-                        </Link>
-                        <a href="#" className="text-foreground hover:text-accent transition-colors">
-                            Giới thiệu
-                        </a>
+                        {navLinks.map((link) => (
+                            <Link
+                                key={link.href}
+                                href={link.href}
+                                className={`transition-colors ${
+                                    pathname === '/user/shop' && link.href === '/user/shop'
+                                        ? 'text-primary font-medium'
+                                        : 'text-foreground hover:text-accent'
+                                }`}
+                            >
+                                {link.label}
+                            </Link>
+                        ))}
                     </nav>
 
                     {/* Right Icons */}
@@ -102,21 +145,19 @@ export function Header() {
                 {/* Mobile Navigation */}
                 {isOpen && (
                     <nav className="md:hidden pb-4 space-y-2">
-                        <Link href="/user/shop" className="block px-4 py-2 text-foreground hover:bg-secondary rounded-lg transition-colors">
-                            Cửa hàng
-                        </Link>
-                        <Link href="/user/shop" className="block px-4 py-2 text-foreground hover:bg-secondary rounded-lg transition-colors">
-                            Áo & Váy
-                        </Link>
-                        <Link href="/user/shop" className="block px-4 py-2 text-foreground hover:bg-secondary rounded-lg transition-colors">
-                            Quần
-                        </Link>
-                        <Link href="/user/shop" className="block px-4 py-2 text-foreground hover:bg-secondary rounded-lg transition-colors">
-                            Phụ kiện
-                        </Link>
-                        <a href="#" className="block px-4 py-2 text-foreground hover:bg-secondary rounded-lg transition-colors">
-                            Giới thiệu
-                        </a>
+                        {navLinks.map((link) => (
+                            <Link
+                                key={link.href}
+                                href={link.href}
+                                className={`block px-4 py-2 rounded-lg transition-colors ${
+                                    pathname === '/user/shop' && link.href === '/user/shop'
+                                        ? 'bg-secondary text-primary font-medium'
+                                        : 'text-foreground hover:bg-secondary'
+                                }`}
+                            >
+                                {link.label}
+                            </Link>
+                        ))}
                         {user && (
                             <>
                                 <Link href="/user/profile" className="block px-4 py-2 text-foreground hover:bg-secondary rounded-lg transition-colors">

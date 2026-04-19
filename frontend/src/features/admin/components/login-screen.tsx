@@ -1,14 +1,14 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { Store } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { Eye, EyeOff, Store } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense, useEffect, useState } from "react"
 import { useAuth } from "@/app/auth-context"
 
 function getErrorMessage(error: unknown) {
@@ -20,20 +20,53 @@ function getErrorMessage(error: unknown) {
   return "Đăng nhập thất bại"
 }
 
-export function LoginScreen() {
+function normalizeRoleName(value?: string) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "")
+}
+
+function resolveLoginDestination(redirectPath: string) {
+  if (typeof window === "undefined") {
+    return redirectPath
+  }
+
+  const savedUser = localStorage.getItem("user")
+  if (!savedUser) {
+    return redirectPath
+  }
+
+  try {
+    const parsedUser = JSON.parse(savedUser) as { role?: { name?: string } }
+    const normalizedRole = normalizeRoleName(parsedUser?.role?.name)
+    if (normalizedRole === "admin" || normalizedRole === "masteradmin") {
+      return "/admin/dashboard"
+    }
+  } catch (error) {
+    console.error("Resolve login destination error:", error)
+  }
+
+  return redirectPath
+}
+
+function LoginScreenContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { login, isAuthenticated } = useAuth()
+  const redirectPath = searchParams.get("redirect") || "/admin/dashboard"
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace("/admin/dashboard")
+      router.replace(resolveLoginDestination(redirectPath))
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, redirectPath, router])
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -48,7 +81,7 @@ export function LoginScreen() {
 
     try {
       await login(username, password, rememberMe)
-      router.replace("/admin/dashboard")
+      router.replace(resolveLoginDestination(redirectPath))
     } catch (error) {
       setError(getErrorMessage(error))
       setIsLoading(false)
@@ -84,7 +117,26 @@ export function LoginScreen() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Mật khẩu</Label>
-                <Input id="password" type="password" placeholder="Nhập password của bạn" value={password} onChange={(event) => setPassword(event.target.value)} disabled={isLoading} />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Nhập password của bạn"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    disabled={isLoading}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    disabled={isLoading}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
               <div className="flex items-center gap-2 pt-1">
                 <Checkbox id="remember" checked={rememberMe} onCheckedChange={(checked) => setRememberMe(Boolean(checked))} disabled={isLoading} />
@@ -108,5 +160,13 @@ export function LoginScreen() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export function LoginScreen() {
+  return (
+    <Suspense fallback={null}>
+      <LoginScreenContent />
+    </Suspense>
   )
 }

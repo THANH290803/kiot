@@ -64,6 +64,82 @@ app.post("/login", authController.login);
 
 /**
  * @swagger
+ * /api/auth/customer-login:
+ *   post:
+ *     summary: Login customer account
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: customer@example.com
+ *               password:
+ *                 type: string
+ *                 example: 123456
+ *     responses:
+ *       200:
+ *         description: Login successfully
+ *       400:
+ *         description: Invalid credentials
+ *       404:
+ *         description: Customer not found
+ */
+app.post("/customer-login", authController.customerLogin);
+
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register customer account (store in customers table)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Nguyen Van A
+ *               email:
+ *                 type: string
+ *                 example: customer@example.com
+ *               password:
+ *                 type: string
+ *                 example: 123456
+ *               phone_number:
+ *                 type: string
+ *                 example: 0912345678
+ *               address:
+ *                 type: string
+ *                 example: District 1, Ho Chi Minh City
+ *     responses:
+ *       201:
+ *         description: Register successfully
+ *       400:
+ *         description: Invalid payload
+ *       409:
+ *         description: Email or phone already registered
+ *       500:
+ *         description: Server error
+ */
+app.post("/register", authController.register);
+
+/**
+ * @swagger
  * /api/auth/logout:
  *   post:
  *     summary: Logout user
