@@ -1,216 +1,214 @@
 name: kiot-ci-cd
 
 on:
-push:
-branches:
-- develop
-- main
-
-pull_request:
-branches:
-- develop
-- main
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
 
 permissions:
-contents: read
+  contents: read
 
 env:
-DEV_BACKEND_URL: https://kiot-dev.onrender.com
-DEV_FRONTEND_URL: https://kiot-dev.vercel.app
-
-PROD_BACKEND_URL: https://kiot-7o5h.onrender.com
-PROD_FRONTEND_URL: https://kiot-blush.vercel.app
+  DEV_BACKEND_URL: https://kiot-dev.onrender.com
+  DEV_FRONTEND_URL: https://kiot-dev.vercel.app
+  PROD_BACKEND_URL: https://kiot-7o5h.onrender.com
+  PROD_FRONTEND_URL: https://kiot-blush.vercel.app
 
 concurrency:
-group: ci-${{ github.workflow }}-${{ github.ref }}
-cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-build-test:
-name: Build & Test
-runs-on: ubuntu-latest
-timeout-minutes: 20
+  build-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-steps:
-  - name: Checkout source
-    uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
 
-  - name: Setup Node.js
-    uses: actions/setup-node@v4
-    with:
-      node-version: "20"
-      cache: npm
+      - name: Install dependencies
+        run: npm ci
 
-  - name: Install dependencies
-    run: npm ci
+      - name: Run backend tests
+        run: npm run test --workspace=backend
 
-  - name: Run backend tests
-    run: npm run test --workspace=backend
+      - name: Build frontend
+        run: npm run build --workspace=frontend
 
-  - name: Build frontend
-    run: npm run build --workspace=frontend
+  verify-dev:
+    name: Verify Development Environment
+    needs: build-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Wait for deployment
+        run: sleep 90
 
-verify-dev:
-name: Verify Development Environment
-needs: build-test
-if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-runs-on: ubuntu-latest
-timeout-minutes: 20
+      - name: Check backend health
+        shell: bash
+        run: |
+          set -euo pipefail
 
-steps:
-  - name: Wait for deployment
-    run: sleep 90
+          URL="${DEV_BACKEND_URL}/health"
 
-  - name: Check backend health
-    shell: bash
-    run: |
-      set -euo pipefail
+          for i in 1 2 3 4 5
+          do
+            STATUS=$(curl -s -o body.txt -w "%{http_code}" "$URL" || true)
+            BODY=$(cat body.txt || true)
 
-      URL="${DEV_BACKEND_URL}/health"
+            if [ "$STATUS" = "200" ] && [[ "$BODY" == *"ok"* ]]; then
+              echo "Backend healthy"
+              exit 0
+            fi
 
-      for i in 1 2 3 4 5
-      do
-        echo "Backend check attempt ${i}/5"
+            sleep 15
+          done
 
-        STATUS=$(curl -s -o body.txt -w "%{http_code}" "$URL" || true)
-        BODY=$(cat body.txt || true)
+          echo "::error::Backend health check failed"
+          exit 1
 
-        if [ "$STATUS" = "200" ] && [[ "$BODY" == *"ok"* ]]; then
-          echo "Backend healthy"
-          exit 0
-        fi
+      - name: Check frontend
+        shell: bash
+        run: |
+          set -euo pipefail
 
-        sleep 15
-      done
+          STATUS=$(curl -s -o body.txt -w "%{http_code}" "${DEV_FRONTEND_URL}" || true)
+          BODY=$(cat body.txt || true)
 
-      echo "::error::Backend health check failed"
-      exit 1
+          if [ "$STATUS" -lt 200 ] || [ "$STATUS" -ge 400 ]; then
+            echo "::error::Frontend unavailable"
+            exit 1
+          fi
 
-  - name: Check frontend
-    shell: bash
-    run: |
-      set -euo pipefail
+          if [[ "$BODY" != *"<html"* ]]; then
+            echo "::error::Frontend response is not HTML"
+            exit 1
+          fi
 
-      STATUS=$(curl -s -o body.txt -w "%{http_code}" "${DEV_FRONTEND_URL}" || true)
-      BODY=$(cat body.txt || true)
+          echo "Frontend healthy"
 
-      if [ "$STATUS" -lt 200 ] || [ "$STATUS" -ge 400 ]; then
-        echo "::error::Frontend unavailable"
-        exit 1
-      fi
+      - name: Development summary
+        run: |
+          {
+            echo "# 🧪 Development Verification Successful"
+            echo ""
+            echo "| Item | Value |"
+            echo "|------|-------|"
+            echo "| Environment | Development |"
+            echo "| Repository | ${{ github.repository }} |"
+            echo "| Branch | ${{ github.ref_name }} |"
+            echo "| Commit | ${{ github.sha }} |"
+            echo "| Triggered By | @${{ github.actor }} |"
+            echo "| Backend | ${{ env.DEV_BACKEND_URL }} |"
+            echo "| Frontend | ${{ env.DEV_FRONTEND_URL }} |"
+            echo ""
+            echo "## Verification Results"
+            echo ""
+            echo "- Backend health check passed"
+            echo "- Frontend availability check passed"
+            echo "- Build completed successfully"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      if [[ "$BODY" != *"<html"* ]]; then
-        echo "::error::Frontend response is not HTML"
-        exit 1
-      fi
+  verify-production:
+    name: Verify Production Environment
+    needs: build-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Wait for deployment
+        run: sleep 90
 
-      echo "Frontend healthy"
+      - name: Check backend health
+        shell: bash
+        run: |
+          set -euo pipefail
 
-  - name: Development summary
-    run: |
-      {
-        echo "# 🧪 Development Verification Successful"
-        echo ""
-        echo "| Item | Value |"
-        echo "|------|-------|"
-        echo "| Environment | Development |"
-        echo "| Branch | ${{ github.ref_name }} |"
-        echo "| Commit | \`${{ github.sha }}\` |"
-        echo "| Triggered By | @${{ github.actor }} |"
-        echo "| Backend | ${{ env.DEV_BACKEND_URL }} |"
-        echo "| Frontend | ${{ env.DEV_FRONTEND_URL }} |"
-        echo ""
-        echo "### Verification"
-        echo "- ✅ Backend health check passed"
-        echo "- ✅ Frontend availability check passed"
-      } >> "$GITHUB_STEP_SUMMARY"
+          URL="${PROD_BACKEND_URL}/health"
 
-verify-production:
-name: Verify Production Environment
-needs: build-test
-if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-runs-on: ubuntu-latest
-timeout-minutes: 20
-environment: production
+          for i in 1 2 3 4 5
+          do
+            STATUS=$(curl -s -o body.txt -w "%{http_code}" "$URL" || true)
+            BODY=$(cat body.txt || true)
 
-steps:
-  - name: Wait for deployment
-    run: sleep 90
+            if [ "$STATUS" = "200" ] && [[ "$BODY" == *"ok"* ]]; then
+              echo "Backend healthy"
+              exit 0
+            fi
 
-  - name: Check backend health
-    shell: bash
-    run: |
-      set -euo pipefail
+            sleep 15
+          done
 
-      URL="${PROD_BACKEND_URL}/health"
+          echo "::error::Backend health check failed"
+          exit 1
 
-      for i in 1 2 3 4 5
-      do
-        echo "Backend check attempt ${i}/5"
+      - name: Check frontend
+        shell: bash
+        run: |
+          set -euo pipefail
 
-        STATUS=$(curl -s -o body.txt -w "%{http_code}" "$URL" || true)
-        BODY=$(cat body.txt || true)
+          STATUS=$(curl -s -o body.txt -w "%{http_code}" "${PROD_FRONTEND_URL}" || true)
+          BODY=$(cat body.txt || true)
 
-        if [ "$STATUS" = "200" ] && [[ "$BODY" == *"ok"* ]]; then
-          echo "Backend healthy"
-          exit 0
-        fi
+          if [ "$STATUS" -lt 200 ] || [ "$STATUS" -ge 400 ]; then
+            echo "::error::Frontend unavailable"
+            exit 1
+          fi
 
-        sleep 15
-      done
+          if [[ "$BODY" != *"<html"* ]]; then
+            echo "::error::Frontend response is not HTML"
+            exit 1
+          fi
 
-      echo "::error::Backend health check failed"
-      exit 1
+          echo "Frontend healthy"
 
-  - name: Check frontend
-    shell: bash
-    run: |
-      set -euo pipefail
-
-      STATUS=$(curl -s -o body.txt -w "%{http_code}" "${PROD_FRONTEND_URL}" || true)
-      BODY=$(cat body.txt || true)
-
-      if [ "$STATUS" -lt 200 ] || [ "$STATUS" -ge 400 ]; then
-        echo "::error::Frontend unavailable"
-        exit 1
-      fi
-
-      if [[ "$BODY" != *"<html"* ]]; then
-        echo "::error::Frontend response is not HTML"
-        exit 1
-      fi
-
-      echo "Frontend healthy"
-
-  - name: Production deployment summary
-    run: |
-      {
-        echo "# 🚀 Production Deployment Successful"
-        echo ""
-        echo "## Deployment Information"
-        echo ""
-        echo "| Item | Value |"
-        echo "|------|-------|"
-        echo "| Environment | Production |"
-        echo "| Repository | ${{ github.repository }} |"
-        echo "| Branch | ${{ github.ref_name }} |"
-        echo "| Commit SHA | \`${{ github.sha }}\` |"
-        echo "| Triggered By | @${{ github.actor }} |"
-        echo "| Workflow | ${{ github.workflow }} |"
-        echo "| Run Number | #${{ github.run_number }} |"
-        echo "| Deployment Time (UTC) | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |"
-        echo ""
-        echo "## Service URLs"
-        echo ""
-        echo "| Service | URL |"
-        echo "|---------|-----|"
-        echo "| Backend | ${{ env.PROD_BACKEND_URL }} |"
-        echo "| Frontend | ${{ env.PROD_FRONTEND_URL }} |"
-        echo ""
-        echo "## Verification Results"
-        echo ""
-        echo "- ✅ Backend health check passed"
-        echo "- ✅ Frontend availability check passed"
-        echo "- ✅ Build completed successfully"
-        echo "- ✅ Deployment completed successfully"
-      } >> "$GITHUB_STEP_SUMMARY"
+      - name: Production deployment summary
+        run: |
+          {
+            echo "# 🚀 Production Deployment Successful"
+            echo ""
+            echo "## Deployment Information"
+            echo ""
+            echo "| Item | Value |"
+            echo "|------|-------|"
+            echo "| Environment | Production |"
+            echo "| Repository | ${{ github.repository }} |"
+            echo "| Branch | ${{ github.ref_name }} |"
+            echo "| Commit SHA | ${{ github.sha }} |"
+            echo "| Triggered By | @${{ github.actor }} |"
+            echo "| Workflow | ${{ github.workflow }} |"
+            echo "| Run Number | #${{ github.run_number }} |"
+            echo "| Deployment Time (UTC) | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |"
+            echo ""
+            echo "## Service URLs"
+            echo ""
+            echo "| Service | URL |"
+            echo "|---------|-----|"
+            echo "| Backend | ${{ env.PROD_BACKEND_URL }} |"
+            echo "| Frontend | ${{ env.PROD_FRONTEND_URL }} |"
+            echo ""
+            echo "## Verification Results"
+            echo ""
+            echo "- Backend health check passed"
+            echo "- Frontend availability check passed"
+            echo "- Build completed successfully"
+            echo "- Production deployment completed successfully"
+          } >> "$GITHUB_STEP_SUMMARY"
