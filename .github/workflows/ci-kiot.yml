@@ -24,7 +24,6 @@ group: ci-${{ github.workflow }}-${{ github.ref }}
 cancel-in-progress: true
 
 jobs:
-
 build-test:
 name: Build and Test
 runs-on: ubuntu-latest
@@ -38,7 +37,7 @@ steps:
   - name: Setup Node.js
     uses: actions/setup-node@v4
     with:
-      node-version: 20
+      node-version: "20"
       cache: npm
       cache-dependency-path: |
         package-lock.json
@@ -56,9 +55,9 @@ steps:
 ```
 
 verify-dev:
-name: Verify Development Environment
+name: Verify Development
 needs: build-test
-if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
 runs-on: ubuntu-latest
 timeout-minutes: 10
 
@@ -67,14 +66,15 @@ steps:
   - name: Wait for deployment
     run: sleep 90
 
-  - name: Verify backend health
+  - name: Check backend health
     shell: bash
     run: |
       set -euo pipefail
 
       URL="${DEV_BACKEND_URL}/health"
 
-      for i in {1..5}; do
+      for i in 1 2 3 4 5
+      do
         echo "Attempt $i"
 
         STATUS=$(curl -s -o response.txt -w "%{http_code}" "$URL" || true)
@@ -91,7 +91,7 @@ steps:
       echo "::error::Backend health check failed"
       exit 1
 
-  - name: Verify frontend
+  - name: Check frontend
     shell: bash
     run: |
       set -euo pipefail
@@ -104,13 +104,18 @@ steps:
         exit 1
       fi
 
-      [[ "$BODY" == *"<html"* ]]
+      if [[ "$BODY" != *"<html"* ]]; then
+        echo "::error::Frontend response is not HTML"
+        exit 1
+      fi
+
+      echo "Frontend healthy"
 ```
 
 verify-production:
-name: Verify Production Environment
+name: Verify Production
 needs: build-test
-if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 runs-on: ubuntu-latest
 timeout-minutes: 10
 environment: production
@@ -120,14 +125,15 @@ steps:
   - name: Wait for deployment
     run: sleep 90
 
-  - name: Verify backend health
+  - name: Check backend health
     shell: bash
     run: |
       set -euo pipefail
 
       URL="${PROD_BACKEND_URL}/health"
 
-      for i in {1..5}; do
+      for i in 1 2 3 4 5
+      do
         echo "Attempt $i"
 
         STATUS=$(curl -s -o response.txt -w "%{http_code}" "$URL" || true)
@@ -144,7 +150,7 @@ steps:
       echo "::error::Backend health check failed"
       exit 1
 
-  - name: Verify frontend
+  - name: Check frontend
     shell: bash
     run: |
       set -euo pipefail
@@ -157,7 +163,12 @@ steps:
         exit 1
       fi
 
-      [[ "$BODY" == *"<html"* ]]
+      if [[ "$BODY" != *"<html"* ]]; then
+        echo "::error::Frontend response is not HTML"
+        exit 1
+      fi
+
+      echo "Frontend healthy"
 
   - name: Deployment summary
     run: |
