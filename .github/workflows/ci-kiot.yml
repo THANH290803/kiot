@@ -11,28 +11,25 @@ on:
       - main
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 env:
-  DEV_BACKEND_URL:   https://kiot-dev.onrender.com
-  DEV_FRONTEND_URL:  https://kiot-dev.vercel.app
-  PROD_BACKEND_URL:  https://kiot-7o5h.onrender.com
+  DEV_BACKEND_URL: https://kiot-dev.onrender.com
+  DEV_FRONTEND_URL: https://kiot-dev.vercel.app
+  PROD_BACKEND_URL: https://kiot-7o5h.onrender.com
   PROD_FRONTEND_URL: https://kiot-blush.vercel.app
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ── 1. Build and Test ─────────────────────────────────────────────────
-  build-and-test:
-    name: Build and Test
+  build-test:
+    name: Build & Test
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     steps:
-      - name: Checkout
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -54,203 +51,164 @@ jobs:
       - name: Build frontend
         run: npm run build --workspace=frontend
 
-  # ── 2. Deploy Dev ────────────────────────────────────────────────────
-  # Chạy tự động sau push vào develop
-  deploy-dev:
-    name: Deploy Dev
-    needs: build-and-test
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+  verify-dev:
+    name: Verify Development Environment
+    needs: build-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
       - name: Wait for deployment
         run: sleep 90
 
-      - name: Check dev backend health
+      - name: Check backend health
         shell: bash
         run: |
           set -euo pipefail
-          target="${DEV_BACKEND_URL}/health"
-          max_attempts=5; attempt=1; passed=false
 
-          echo "Dev backend → ${target}"
-          while [ "${attempt}" -le "${max_attempts}" ]; do
-            echo "Attempt ${attempt}/${max_attempts}"
-            curl_exit=0
-            status=$(curl -sS --max-time 20 \
-              -o /tmp/body.txt -w "%{http_code}" \
-              "${target}" 2>/tmp/err.txt) || curl_exit=$?
-            body=$(cat /tmp/body.txt 2>/dev/null || true)
-            [ -s /tmp/err.txt ] && echo "curl stderr: $(cat /tmp/err.txt)"
-            echo "HTTP ${status:-no-response} | exit: ${curl_exit}"
-            printf 'Body: %s\n' "${body:0:500}"
+          URL="${DEV_BACKEND_URL}/health"
 
-            if [ "${curl_exit}" -eq 0 ] && [ "${status}" = "200" ] && [[ "${body}" == *"ok"* ]]; then
-              passed=true; break
+          for i in 1 2 3 4 5
+          do
+            STATUS=$(curl -s -o body.txt -w "%{http_code}" "$URL" || true)
+            BODY=$(cat body.txt || true)
+
+            if [ "$STATUS" = "200" ] && [[ "$BODY" == *"ok"* ]]; then
+              echo "Backend healthy"
+              exit 0
             fi
-            [ "${attempt}" -lt "${max_attempts}" ] && sleep 15
-            attempt=$((attempt + 1))
+
+            sleep 15
           done
 
-          "${passed}" && echo "Dev backend ✓" || { echo "::error::Dev backend failed."; exit 1; }
+          echo "::error::Backend health check failed"
+          exit 1
 
-      - name: Check dev frontend
+      - name: Check frontend
         shell: bash
         run: |
           set -euo pipefail
-          target="${DEV_FRONTEND_URL}"
-          echo "Dev frontend → ${target}"
 
-          curl_exit=0
-          status=$(curl -sS --max-time 20 \
-            -o /tmp/body.txt -w "%{http_code}" \
-            "${target}" 2>/tmp/err.txt) || curl_exit=$?
-          body=$(cat /tmp/body.txt 2>/dev/null || true)
-          echo "HTTP ${status:-no-response} | exit: ${curl_exit}"
+          STATUS=$(curl -s -o body.txt -w "%{http_code}" "${DEV_FRONTEND_URL}" || true)
+          BODY=$(cat body.txt || true)
 
-          [ "${curl_exit}" -ne 0 ] && { echo "::error::Dev frontend unreachable."; exit 1; }
-          { [ "${status}" -lt 200 ] || [ "${status}" -ge 400 ]; } && { echo "::error::HTTP ${status}."; exit 1; }
-          [[ "${body}" != *"<html"* ]] && { echo "::error::Response is not HTML."; exit 1; }
-          echo "Dev frontend ✓"
+          if [ "$STATUS" -lt 200 ] || [ "$STATUS" -ge 400 ]; then
+            echo "::error::Frontend unavailable"
+            exit 1
+          fi
 
-  # ── 3. Tự động mở PR develop → main sau khi Deploy Dev pass ──────────
-  # PR này chính là "nút deploy production" — bấm Merge = deploy
-  open-release-pr:
-    name: Open Release PR
-    needs: deploy-dev
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+          if [[ "$BODY" != *"<html"* ]]; then
+            echo "::error::Frontend response is not HTML"
+            exit 1
+          fi
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+          echo "Frontend healthy"
 
-      - name: Create or update release PR
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const owner = context.repo.owner;
-            const repo  = context.repo.repo;
-            const head  = `${owner}:develop`;
-            const base  = "main";
+      - name: Development summary
+        run: |
+          {
+            echo "# 🧪 Development Verification Successful"
+            echo ""
+            echo "| Item | Value |"
+            echo "|------|-------|"
+            echo "| Environment | Development |"
+            echo "| Repository | ${{ github.repository }} |"
+            echo "| Branch | ${{ github.ref_name }} |"
+            echo "| Commit | ${{ github.sha }} |"
+            echo "| Triggered By | @${{ github.actor }} |"
+            echo "| Backend | ${{ env.DEV_BACKEND_URL }} |"
+            echo "| Frontend | ${{ env.DEV_FRONTEND_URL }} |"
+            echo ""
+            echo "## Verification Results"
+            echo ""
+            echo "- Backend health check passed"
+            echo "- Frontend availability check passed"
+            echo "- Build completed successfully"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-            // Kiểm tra develop có commit mới hơn main không
-            const compare = await github.rest.repos.compareCommitsWithBasehead({
-              owner, repo,
-              basehead: `main...develop`
-            });
-            if (compare.data.ahead_by === 0) {
-              core.notice("develop is already up to date with main — no PR needed.");
-              return;
-            }
-
-            // Tìm PR đang mở
-            const existing = await github.rest.pulls.list({
-              owner, repo, state: "open", head, base, per_page: 1
-            });
-
-            if (existing.data.length > 0) {
-              const pr = existing.data[0];
-              core.notice(`Release PR already open: #${pr.number} ${pr.html_url}`);
-              return;
-            }
-
-            // Tạo PR mới
-            const date = new Date().toISOString().slice(0, 10);
-            const { data: pr } = await github.rest.pulls.create({
-              owner, repo,
-              title: `🚀 Release ${date}: develop → main`,
-              head: "develop",
-              base: "main",
-              body: [
-                "## Deploy Production",
-                "",
-                "CI passed ✓ — bấm **Merge pull request** để deploy lên production.",
-                "",
-                "### Checklist",
-                "- [ ] Kiểm tra Deploy Dev pass",
-                "- [ ] Database migration ready (nếu có)",
-                "- [ ] Rollback plan sẵn sàng",
-              ].join("\n")
-            });
-
-            core.notice(`Release PR created: #${pr.number} ${pr.html_url}`);
-
-  # ── 4. Deploy Production ─────────────────────────────────────────────
-  # Trigger khi PR develop → main được merge (push vào main)
-  deploy-production:
-    name: Deploy Production
-    needs: build-and-test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  verify-production:
+    name: Verify Production Environment
+    needs: build-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production
-
     steps:
       - name: Wait for deployment
         run: sleep 90
 
-      - name: Check production backend health
+      - name: Check backend health
         shell: bash
         run: |
           set -euo pipefail
-          target="${PROD_BACKEND_URL}/health"
-          max_attempts=5; attempt=1; passed=false
 
-          echo "::group::Production backend → ${target}"
-          while [ "${attempt}" -le "${max_attempts}" ]; do
-            echo "Attempt ${attempt}/${max_attempts}"
-            curl_exit=0
-            status=$(curl -sS --max-time 20 \
-              -o /tmp/body.txt -w "%{http_code}" \
-              "${target}" 2>/tmp/err.txt) || curl_exit=$?
-            body=$(cat /tmp/body.txt 2>/dev/null || true)
-            [ -s /tmp/err.txt ] && echo "curl stderr: $(cat /tmp/err.txt)"
-            echo "HTTP ${status:-no-response} | exit: ${curl_exit}"
-            printf 'Body: %s\n' "${body:0:500}"
+          URL="${PROD_BACKEND_URL}/health"
 
-            if [ "${curl_exit}" -eq 0 ] && [ "${status}" = "200" ] && [[ "${body}" == *"ok"* ]]; then
-              passed=true; break
+          for i in 1 2 3 4 5
+          do
+            STATUS=$(curl -s -o body.txt -w "%{http_code}" "$URL" || true)
+            BODY=$(cat body.txt || true)
+
+            if [ "$STATUS" = "200" ] && [[ "$BODY" == *"ok"* ]]; then
+              echo "Backend healthy"
+              exit 0
             fi
-            [ "${attempt}" -lt "${max_attempts}" ] && sleep 15
-            attempt=$((attempt + 1))
+
+            sleep 15
           done
-          echo "::endgroup::"
 
-          "${passed}" && echo "Backend ✓" || { echo "::error::Backend health check failed."; exit 1; }
+          echo "::error::Backend health check failed"
+          exit 1
 
-      - name: Check production frontend
+      - name: Check frontend
         shell: bash
         run: |
           set -euo pipefail
-          target="${PROD_FRONTEND_URL}"
-          echo "::group::Production frontend → ${target}"
 
-          curl_exit=0
-          status=$(curl -sS --max-time 20 \
-            -o /tmp/body.txt -w "%{http_code}" \
-            "${target}" 2>/tmp/err.txt) || curl_exit=$?
-          body=$(cat /tmp/body.txt 2>/dev/null || true)
-          echo "HTTP ${status:-no-response} | exit: ${curl_exit}"
-          echo "::endgroup::"
+          STATUS=$(curl -s -o body.txt -w "%{http_code}" "${PROD_FRONTEND_URL}" || true)
+          BODY=$(cat body.txt || true)
 
-          [ "${curl_exit}" -ne 0 ] && { echo "::error::Production frontend unreachable."; exit 1; }
-          { [ "${status}" -lt 200 ] || [ "${status}" -ge 400 ]; } && { echo "::error::HTTP ${status}."; exit 1; }
-          [[ "${body}" != *"<html"* ]] && { echo "::error::Response is not HTML."; exit 1; }
-          echo "Frontend ✓"
+          if [ "$STATUS" -lt 200 ] || [ "$STATUS" -ge 400 ]; then
+            echo "::error::Frontend unavailable"
+            exit 1
+          fi
 
-      - name: Deployment summary
+          if [[ "$BODY" != *"<html"* ]]; then
+            echo "::error::Frontend response is not HTML"
+            exit 1
+          fi
+
+          echo "Frontend healthy"
+
+      - name: Production deployment summary
         run: |
-          echo "## Production Deployment ✓" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| | |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Deployed at** | $(date -u '+%Y-%m-%d %H:%M UTC') |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Triggered by** | @${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Commit** | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Backend** | ${{ env.PROD_BACKEND_URL }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Frontend** | ${{ env.PROD_FRONTEND_URL }} |" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "# 🚀 Production Deployment Successful"
+            echo ""
+            echo "## Deployment Information"
+            echo ""
+            echo "| Item | Value |"
+            echo "|------|-------|"
+            echo "| Environment | Production |"
+            echo "| Repository | ${{ github.repository }} |"
+            echo "| Branch | ${{ github.ref_name }} |"
+            echo "| Commit SHA | ${{ github.sha }} |"
+            echo "| Triggered By | @${{ github.actor }} |"
+            echo "| Workflow | ${{ github.workflow }} |"
+            echo "| Run Number | #${{ github.run_number }} |"
+            echo "| Deployment Time (UTC) | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |"
+            echo ""
+            echo "## Service URLs"
+            echo ""
+            echo "| Service | URL |"
+            echo "|---------|-----|"
+            echo "| Backend | ${{ env.PROD_BACKEND_URL }} |"
+            echo "| Frontend | ${{ env.PROD_FRONTEND_URL }} |"
+            echo ""
+            echo "## Verification Results"
+            echo ""
+            echo "- Backend health check passed"
+            echo "- Frontend availability check passed"
+            echo "- Build completed successfully"
+            echo "- Production deployment completed successfully"
+          } >> "$GITHUB_STEP_SUMMARY"
