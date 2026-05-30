@@ -24,10 +24,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ── 1. Build & Test ───────────────────────────────────────────────────
-  # Chạy trên mọi push và PR
-  ci:
-    name: CI
+  # ── 1. Build and Test ─────────────────────────────────────────────────
+  build-and-test:
+    name: Build and Test
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -54,14 +53,15 @@ jobs:
       - name: Build frontend
         run: npm run build --workspace=frontend
 
-  # ── 2. Verify Dev ────────────────────────────────────────────────────
-  # Chỉ chạy sau push vào develop
-  verify-dev:
-    name: Verify Dev
-    needs: ci
+  # ── 2. Deploy Dev ────────────────────────────────────────────────────
+  # Chạy tự động sau push vào develop
+  deploy-dev:
+    name: Deploy Dev
+    needs: build-and-test
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: dev   # không cần reviewers
 
     steps:
       - name: Wait for deployment
@@ -114,15 +114,16 @@ jobs:
           [[ "${body}" != *"<html"* ]] && { echo "::error::Response is not HTML."; exit 1; }
           echo "Dev frontend ✓"
 
-  # ── 3. Verify Production ─────────────────────────────────────────────
-  # Chỉ chạy sau push vào main (tức là sau khi merge PR develop → main)
-  verify-production:
-    name: Verify Production
-    needs: ci
+  # ── 3. Deploy Production ─────────────────────────────────────────────
+  # Sau push vào main, job DỪNG và hiện nút "Approve and deploy"
+  # Cần setup trên GitHub: Settings → Environments → production → Required reviewers
+  deploy-production:
+    name: Deploy Production
+    needs: build-and-test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: production
+    environment: production   # ← nút "Approve and deploy" xuất hiện ở đây
 
     steps:
       - name: Wait for deployment
