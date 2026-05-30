@@ -1,6 +1,7 @@
 // hooks/useRoles.ts
 import { useEffect, useState, useCallback } from "react"
 import api from "@/lib/api"
+import { useAdminPermissions } from "@/features/admin/providers/admin-permission-provider"
 
 export interface Role {
   id: number
@@ -21,6 +22,7 @@ export interface RolePermission {
 
 
 export function useRoles() {
+  const { hasPermission } = useAdminPermissions()
   const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -59,6 +61,12 @@ export function useRoles() {
     name: string
     description?: string
   }) => {
+    if (!hasPermission(["roles.create"])) {
+      if (typeof window !== "undefined") {
+        window.alert("Bạn không có quyền tạo vai trò.")
+      }
+      return
+    }
     await api.post("/api/roles", payload)
     fetchRoles()
   }
@@ -67,11 +75,23 @@ export function useRoles() {
     id: number,
     payload: { name: string; description?: string }
   ) => {
+    if (!hasPermission(["roles.update", "roles.edit"])) {
+      if (typeof window !== "undefined") {
+        window.alert("Bạn không có quyền cập nhật vai trò.")
+      }
+      return
+    }
     await api.patch(`/api/roles/${id}`, payload)
     fetchRoles()
   }
 
   const deleteRole = async (id: number) => {
+    if (!hasPermission(["roles.delete"])) {
+      if (typeof window !== "undefined") {
+        window.alert("Bạn không có quyền xóa vai trò.")
+      }
+      return
+    }
     await api.delete(`/api/roles/${id}`)
     fetchRoles()
   }
@@ -88,8 +108,17 @@ export function useRoles() {
     roleId: number,
     payload: { permission_ids: number[] }
   ) => {
+    if (!hasPermission(["roles.assign_permissions", "permission_groups.manage"])) {
+      if (typeof window !== "undefined") {
+        window.alert("Bạn không có quyền gán quyền cho vai trò.")
+      }
+      return
+    }
     await api.patch(`/api/roles/${roleId}/permissions`, payload)
     await fetchRoles()
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("admin-permissions:refresh"))
+    }
   }
 
   return {

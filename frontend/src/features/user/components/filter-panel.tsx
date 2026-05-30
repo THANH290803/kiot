@@ -8,6 +8,10 @@ interface FilterPanelProps {
     selectedSize: string[]
     selectedColor: string[]
     priceRange: [number, number]
+    categoryOptions: string[]
+    sizeOptions: string[]
+    colorOptions: string[]
+    maxPrice: number
     onCategoryChange: (category: string) => void
     onSizeChange: (sizes: string[]) => void
     onColorChange: (colors: string[]) => void
@@ -19,6 +23,10 @@ export function FilterPanel({
                                 selectedSize,
                                 selectedColor,
                                 priceRange,
+                                categoryOptions,
+                                sizeOptions,
+                                colorOptions,
+                                maxPrice,
                                 onCategoryChange,
                                 onSizeChange,
                                 onColorChange,
@@ -38,9 +46,7 @@ export function FilterPanel({
         }))
     }
 
-    const categories = ['Tất cả', 'Áo', 'Váy', 'Quần', 'Áo khoác', 'Phụ kiện']
-    const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
-    const colors = ['Đen', 'Trắng', 'Xám', 'Đỏ', 'Xanh', 'Vàng', 'Hồng']
+    const sliderMax = Math.max(10000, maxPrice || 0)
 
     return (
         <div className="bg-white rounded-lg border border-border p-6 space-y-6 h-fit sticky top-24">
@@ -59,7 +65,7 @@ export function FilterPanel({
                 </button>
                 {expandedSections.category && (
                     <div className="mt-3 space-y-2">
-                        {categories.map((category) => (
+                        {categoryOptions.map((category) => (
                             <label key={category} className="flex items-center cursor-pointer">
                                 <input
                                     type="radio"
@@ -93,7 +99,7 @@ export function FilterPanel({
                 </button>
                 {expandedSections.size && (
                     <div className="mt-3 flex flex-wrap gap-2">
-                        {sizes.map((size) => (
+                        {sizeOptions.map((size) => (
                             <button
                                 key={size}
                                 onClick={() => {
@@ -131,7 +137,7 @@ export function FilterPanel({
                 </button>
                 {expandedSections.color && (
                     <div className="mt-3 space-y-2">
-                        {colors.map((color) => (
+                        {colorOptions.map((color) => (
                             <label key={color} className="flex items-center cursor-pointer">
                                 <input
                                     type="checkbox"
@@ -184,7 +190,7 @@ export function FilterPanel({
                                 type="number"
                                 value={priceRange[1]}
                                 onChange={(e) =>
-                                    onPriceChange([priceRange[0], parseInt(e.target.value) || 10000])
+                                    onPriceChange([priceRange[0], parseInt(e.target.value) || sliderMax])
                                 }
                                 className="w-1/2 px-2 py-1 border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-accent"
                                 placeholder="Tối đa"
@@ -193,7 +199,7 @@ export function FilterPanel({
                         <input
                             type="range"
                             min="0"
-                            max="10000"
+                            max={sliderMax}
                             value={priceRange[1]}
                             onChange={(e) =>
                                 onPriceChange([priceRange[0], parseInt(e.target.value)])
@@ -210,7 +216,7 @@ export function FilterPanel({
                     onCategoryChange('Tất cả')
                     onSizeChange([])
                     onColorChange([])
-                    onPriceChange([0, 10000])
+                    onPriceChange([0, sliderMax])
                 }}
                 className="w-full py-2 px-4 bg-secondary text-foreground rounded-lg hover:bg-accent hover:text-white transition-colors font-medium"
             >

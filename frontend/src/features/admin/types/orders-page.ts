@@ -25,10 +25,11 @@ export interface OrderApiResponse {
   id: number
   order_code: string
   customer_id: number | null
-  user_id: number
+  user_id: number | null
   total_quantity: number
   total_amount: number
   payment_method: string
+  channel: "online" | "in_store" | string
   status: string
   note: string | null
   customer?: CustomerSummary | null
@@ -43,6 +44,7 @@ export interface OrderView {
   code: string
   time: string
   customer: string
+  channel: "online" | "in_store" | string
   total: number
   status: string
   payment: string

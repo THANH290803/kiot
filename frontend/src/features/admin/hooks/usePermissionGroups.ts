@@ -1,6 +1,7 @@
 // hooks/usePermissionGroups.ts
 import { useEffect, useState, useCallback } from "react"
 import api from "@/lib/api"
+import { useAdminPermissions } from "@/features/admin/providers/admin-permission-provider"
 
 export interface PermissionGroup {
     id: number
@@ -10,6 +11,7 @@ export interface PermissionGroup {
 }
 
 export function usePermissionGroups() {
+    const { hasPermission } = useAdminPermissions()
     /* ================= STATE ================= */
     const [groups, setGroups] = useState<PermissionGroup[]>([])
     const [loading, setLoading] = useState(false)
@@ -59,6 +61,12 @@ export function usePermissionGroups() {
         name: string
         description?: string
     }) => {
+        if (!hasPermission(["permission_groups.manage", "permissions.create"])) {
+            if (typeof window !== "undefined") {
+                window.alert("Bạn không có quyền tạo nhóm quyền.")
+            }
+            return
+        }
         await api.post("/api/permission-groups", payload)
         await fetchGroups()
         setIsAddDialogOpen(false)
@@ -68,6 +76,12 @@ export function usePermissionGroups() {
         id: number,
         payload: { name: string; description?: string }
     ) => {
+        if (!hasPermission(["permission_groups.manage", "permissions.update", "permissions.edit"])) {
+            if (typeof window !== "undefined") {
+                window.alert("Bạn không có quyền cập nhật nhóm quyền.")
+            }
+            return
+        }
         await api.patch(`/api/permission-groups/${id}`, payload)
         await fetchGroups()
         setIsEditDialogOpen(false)
@@ -75,6 +89,12 @@ export function usePermissionGroups() {
     }
 
     const deleteGroup = async (id: number) => {
+        if (!hasPermission(["permission_groups.manage", "permissions.delete"])) {
+            if (typeof window !== "undefined") {
+                window.alert("Bạn không có quyền xóa nhóm quyền.")
+            }
+            return
+        }
         await api.delete(`/api/permission-groups/${id}`)
         await fetchGroups()
         setIsDeleteDialogOpen(false)

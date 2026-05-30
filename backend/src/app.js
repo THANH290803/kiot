@@ -17,6 +17,7 @@ const orderItemRoutes = require("./routes/order_item.routes");
 const statisticsRoutes = require("./routes/statistics.routes");
 const paymentRoutes = require("./routes/payment.routes");
 const imageRoutes = require("./routes/image.routes");
+const cartRoutes = require("./routes/cart.routes");
 
 const app = express();
 app.use(express.json());
@@ -60,6 +61,27 @@ app.use(
     })
 );
 
+// Chặn mở trực tiếp API GET trên tab trình duyệt, nhưng vẫn cho phép fetch/axios từ frontend.
+app.use("/api", (req, res, next) => {
+  const isSwaggerRequest = req.path === "/docs" || req.path.startsWith("/docs/");
+  if (isSwaggerRequest) {
+    return next();
+  }
+
+  const isGetRequest = req.method === "GET";
+  const isBrowserNavigate =
+    req.headers["sec-fetch-mode"] === "navigate" ||
+    req.headers["sec-fetch-dest"] === "document";
+  const acceptHeader = req.headers.accept || "";
+  const wantsHtml = acceptHeader.includes("text/html");
+
+  if (isGetRequest && isBrowserNavigate && wantsHtml) {
+    return res.status(404).json({ message: "Not found" });
+  }
+
+  return next();
+});
+
 /* =========================
    DB CONNECT
 ========================= */
@@ -95,6 +117,9 @@ app.use("/api/order-items", orderItemRoutes);
 app.use("/api/statistics", statisticsRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/images", imageRoutes);
+app.use("/api/cart", cartRoutes);
+app.use("/api/vouchers", require("./routes/voucher.routes"));
+app.use("/api/customer-vouchers", require("./routes/customer_voucher.routes"));
 app.get("/health", (req, res) => {
     res.status(200).json({
         status: "ok",

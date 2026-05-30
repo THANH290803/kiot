@@ -368,7 +368,7 @@ export default function EmployeesPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild>
-                            <Link href={`/employees/${employee.id}`} className="flex items-center cursor-pointer">
+                            <Link href={`/admin/employees/${employee.id}`} className="flex items-center cursor-pointer">
                               <Eye className="h-4 w-4 mr-2" /> Xem chi tiết
                             </Link>
                           </DropdownMenuItem>

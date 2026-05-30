@@ -1,4 +1,4 @@
-name: kiot-ci-cd
+name: CI
 
 on:
   push:
@@ -9,40 +9,14 @@ on:
     branches:
       - develop
       - main
-  workflow_dispatch:
-    inputs:
-      action:
-        description: "Choose action"
-        required: true
-        default: release_pr
-        type: choice
-        options:
-          - release_pr
-          - run_ci
-      release_note:
-        description: "Release note (optional, only for release_pr)"
-        required: false
-        default: ""
-        type: string
-
-permissions:
-  contents: read
-  pull-requests: write
-
-env:
-  DEV_BACKEND_URL: https://kiot-dev.onrender.com
-  DEV_FRONTEND_URL: https://kiot-dev.vercel.app
-  PROD_BACKEND_URL: https://kiot-7o5h.onrender.com
-  PROD_FRONTEND_URL: https://kiot-blush.vercel.app
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-test:
     name: Build and Test
-    if: github.event_name != 'workflow_dispatch' || github.event.inputs.action == 'run_ci'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -69,118 +43,16 @@ jobs:
       - name: Build frontend
         run: npm run build --workspace=frontend
 
-  create-release-pr:
-    name: Create Release PR
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'release_pr'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Validate branch diff
-        id: diff
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch origin main develop
-
-          ahead_count=$(git rev-list --count origin/main..origin/develop)
-          behind_count=$(git rev-list --count origin/develop..origin/main)
-
-          echo "develop ahead of main: ${ahead_count}"
-          echo "develop behind main: ${behind_count}"
-
-          if [ "${ahead_count}" -eq 0 ]; then
-            echo "has_changes=false" >> "$GITHUB_OUTPUT"
-            echo "No new commits to release from develop to main."
-            exit 0
-          fi
-
-          echo "has_changes=true" >> "$GITHUB_OUTPUT"
-
-      - name: Create or reuse PR develop -> main
-        if: steps.diff.outputs.has_changes == 'true'
-        id: pr
-        uses: actions/github-script@v7
-        env:
-          RELEASE_NOTE: ${{ github.event.inputs.release_note }}
-        with:
-          script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const head = `${owner}:develop`;
-            const base = "main";
-
-            const existing = await github.rest.pulls.list({
-              owner,
-              repo,
-              state: "open",
-              head,
-              base,
-              per_page: 100
-            });
-
-            if (existing.data.length > 0) {
-              const pr = existing.data[0];
-              core.setOutput("pr_number", String(pr.number));
-              core.setOutput("pr_url", pr.html_url);
-              core.setOutput("created", "false");
-              core.info(`Reuse existing PR #${pr.number}: ${pr.html_url}`);
-              return;
-            }
-
-            const date = new Date().toISOString().slice(0, 10);
-            const releaseNote = (process.env.RELEASE_NOTE || "").trim();
-            const noteBlock = releaseNote
-              ? `## Release Note\n${releaseNote}\n\n`
-              : "";
-
-            const checklist = [
-              "## Release Checklist",
-              "- [ ] Backend tests passed",
-              "- [ ] Frontend build passed",
-              "- [ ] Database migration checked (if any)",
-              "- [ ] Rollback plan ready",
-              "- [ ] Smoke test after deploy"
-            ].join("\n");
-            const body = `${noteBlock}${checklist}`;
-
-            const created = await github.rest.pulls.create({
-              owner,
-              repo,
-              title: `Release ${date}: develop -> main`,
-              head: "develop",
-              base: "main",
-              body
-            });
-
-            core.setOutput("pr_number", String(created.data.number));
-            core.setOutput("pr_url", created.data.html_url);
-            core.setOutput("created", "true");
-            core.info(`Created PR #${created.data.number}: ${created.data.html_url}`);
-
-      - name: Summary
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ "${{ steps.diff.outputs.has_changes }}" != "true" ]; then
-            echo "No release PR created because develop has no new commits."
-            exit 0
-          fi
-
-          echo "Release PR URL: ${{ steps.pr.outputs.pr_url }}"
-          echo "PR number: ${{ steps.pr.outputs.pr_number }}"
-          echo "Created new PR: ${{ steps.pr.outputs.created }}"
-
+  # ── Chỉ chạy sau push vào develop ──────────────────────────────────────
   verify-dev:
-    name: Dev Deployment
+    name: Verify Dev
     needs: build-test
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      DEV_BACKEND_URL:  https://kiot-dev.onrender.com
+      DEV_FRONTEND_URL: https://kiot-dev.vercel.app
 
     steps:
       - name: Wait for deployment
@@ -195,199 +67,41 @@ jobs:
           attempt=1
           passed=false
 
-          echo "Dev backend health check"
-          echo "Target: ${target}"
-
+          echo "Dev backend health check → ${target}"
           while [ "${attempt}" -le "${max_attempts}" ]; do
             echo "Attempt ${attempt}/${max_attempts}"
-            curl_err_file="/tmp/dev_backend_curl_err.txt"
             curl_exit=0
-            status=$(curl -sS --max-time 20 -o /tmp/dev_backend_body.txt -w "%{http_code}" "${target}" 2>"${curl_err_file}") || curl_exit=$?
-            body=$(cat /tmp/dev_backend_body.txt 2>/dev/null || true)
-            curl_err=$(cat "${curl_err_file}" || true)
-
-            echo "HTTP status: ${status:-no-response}"
-            echo "curl exit code: ${curl_exit}"
-            if [ -n "${curl_err}" ]; then
-              echo "curl stderr: ${curl_err}"
-            fi
-            echo "Response body (first 500 chars):"
-            printf '%s\n' "${body:0:500}"
+            status=$(curl -sS --max-time 20 \
+              -o /tmp/body.txt -w "%{http_code}" \
+              "${target}" 2>/tmp/err.txt) || curl_exit=$?
+            body=$(cat /tmp/body.txt 2>/dev/null || true)
+            [ -n "$(cat /tmp/err.txt)" ] && echo "curl stderr: $(cat /tmp/err.txt)"
+            echo "HTTP ${status:-no-response} | exit: ${curl_exit}"
+            printf 'Body: %s\n' "${body:0:500}"
 
             if [ "${curl_exit}" -eq 0 ] && [ "${status}" = "200" ] && [[ "${body}" == *"ok"* ]]; then
-              passed=true
-              break
+              passed=true; break
             fi
-
-            if [ "${attempt}" -lt "${max_attempts}" ]; then
-              echo "Health check not ready, retry after 15s..."
-              sleep 15
-            fi
+            [ "${attempt}" -lt "${max_attempts}" ] && sleep 15
             attempt=$((attempt + 1))
           done
 
-          if [ "${passed}" != "true" ]; then
-            echo "::error::Dev backend health check failed after ${max_attempts} attempts."
-            echo "::error::Expected: HTTP 200 and body contains 'ok'."
-            exit 1
-          fi
-
-          echo "Dev backend check passed"
+          "${passed}" && echo "Dev backend ✓" || { echo "::error::Dev backend failed."; exit 1; }
 
       - name: Check dev frontend
         shell: bash
         run: |
           set -euo pipefail
           target="${DEV_FRONTEND_URL}"
-          echo "::group::Dev frontend check"
-          echo "Target: ${target}"
+          echo "Dev frontend check → ${target}"
 
-          curl_err_file="/tmp/dev_frontend_curl_err.txt"
           curl_exit=0
-          status=$(curl -sS --max-time 20 -o /tmp/dev_frontend_body.txt -w "%{http_code}" "${target}" 2>"${curl_err_file}") || curl_exit=$?
-          body=$(cat /tmp/dev_frontend_body.txt 2>/dev/null || true)
-          curl_err=$(cat "${curl_err_file}" || true)
+          status=$(curl -sS --max-time 20 \
+            -o /tmp/body.txt -w "%{http_code}" \
+            "${target}" 2>/tmp/err.txt) || curl_exit=$?
+          body=$(cat /tmp/body.txt 2>/dev/null || true)
 
-          echo "HTTP status: ${status:-no-response}"
-          echo "curl exit code: ${curl_exit}"
-          if [ -n "${curl_err}" ]; then
-            echo "curl stderr: ${curl_err}"
-          fi
-          echo "Response body (first 300 chars):"
-          printf '%s\n' "${body:0:300}"
-          echo
-
-          if [ "${curl_exit}" -ne 0 ] || [ -z "${status:-}" ] || [ "${status}" = "000" ]; then
-            echo "::error::Dev frontend is unreachable (${target})."
-            if [ -n "${curl_err}" ]; then
-              echo "::error::curl failed with exit code ${curl_exit}: ${curl_err}"
-            else
-              echo "::error::No HTTP response. Check DNS, TLS, firewall, or deployment status."
-            fi
-            echo "::endgroup::"
-            exit 1
-          fi
-
-          if [ "${status}" -lt 200 ] || [ "${status}" -ge 400 ]; then
-            echo "::error::Dev frontend check failed. Expected 2xx/3xx, got ${status}."
-            echo "::endgroup::"
-            exit 1
-          fi
-
-          if [[ "${body}" != *"<html"* ]]; then
-            echo "::error::Dev frontend check failed. Response does not look like HTML."
-            echo "::endgroup::"
-            exit 1
-          fi
-
-          echo "Dev frontend check passed"
-          echo "::endgroup::"
-
-  verify-production:
-    name: Production Deployment
-    needs: build-test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: production
-
-    steps:
-      - name: Wait for deployment
-        run: sleep 90
-
-      - name: Check production backend health
-        shell: bash
-        run: |
-          set -euo pipefail
-          target="${PROD_BACKEND_URL}/health"
-          echo "::group::Production backend health check"
-          echo "Target: ${target}"
-
-          curl_err_file="/tmp/prod_backend_curl_err.txt"
-          curl_exit=0
-          status=$(curl -sS --max-time 20 -o /tmp/prod_backend_body.txt -w "%{http_code}" "${target}" 2>"${curl_err_file}") || curl_exit=$?
-          body=$(cat /tmp/prod_backend_body.txt 2>/dev/null || true)
-          curl_err=$(cat "${curl_err_file}" || true)
-
-          echo "HTTP status: ${status:-no-response}"
-          echo "curl exit code: ${curl_exit}"
-          if [ -n "${curl_err}" ]; then
-            echo "curl stderr: ${curl_err}"
-          fi
-          echo "Response body:"
-          printf '%s\n' "${body:0:500}"
-
-          if [ "${curl_exit}" -ne 0 ] || [ -z "${status:-}" ] || [ "${status}" = "000" ]; then
-            echo "::error::Production backend is unreachable (${target})."
-            if [ -n "${curl_err}" ]; then
-              echo "::error::curl failed with exit code ${curl_exit}: ${curl_err}"
-            else
-              echo "::error::No HTTP response. Check DNS, TLS, firewall, or service down."
-            fi
-            echo "::endgroup::"
-            exit 1
-          fi
-
-          if [ "${status}" != "200" ]; then
-            echo "::error::Production backend health check failed. Expected 200, got ${status}."
-            echo "::endgroup::"
-            exit 1
-          fi
-
-          if [[ "${body}" != *"ok"* ]]; then
-            echo "::error::Production backend health check failed. Response does not contain 'ok'."
-            echo "::endgroup::"
-            exit 1
-          fi
-
-          echo "Production backend check passed"
-          echo "::endgroup::"
-
-      - name: Check production frontend
-        shell: bash
-        run: |
-          set -euo pipefail
-          target="${PROD_FRONTEND_URL}"
-          echo "::group::Production frontend check"
-          echo "Target: ${target}"
-
-          curl_err_file="/tmp/prod_frontend_curl_err.txt"
-          curl_exit=0
-          status=$(curl -sS --max-time 20 -o /tmp/prod_frontend_body.txt -w "%{http_code}" "${target}" 2>"${curl_err_file}") || curl_exit=$?
-          body=$(cat /tmp/prod_frontend_body.txt 2>/dev/null || true)
-          curl_err=$(cat "${curl_err_file}" || true)
-
-          echo "HTTP status: ${status:-no-response}"
-          echo "curl exit code: ${curl_exit}"
-          if [ -n "${curl_err}" ]; then
-            echo "curl stderr: ${curl_err}"
-          fi
-          echo "Response body (first 300 chars):"
-          printf '%s\n' "${body:0:300}"
-          echo
-
-          if [ "${curl_exit}" -ne 0 ] || [ -z "${status:-}" ] || [ "${status}" = "000" ]; then
-            echo "::error::Production frontend is unreachable (${target})."
-            if [ -n "${curl_err}" ]; then
-              echo "::error::curl failed with exit code ${curl_exit}: ${curl_err}"
-            else
-              echo "::error::No HTTP response. Check DNS, TLS, firewall, or deployment status."
-            fi
-            echo "::endgroup::"
-            exit 1
-          fi
-
-          if [ "${status}" -lt 200 ] || [ "${status}" -ge 400 ]; then
-            echo "::error::Production frontend check failed. Expected 2xx/3xx, got ${status}."
-            echo "::endgroup::"
-            exit 1
-          fi
-
-          if [[ "${body}" != *"<html"* ]]; then
-            echo "::error::Production frontend check failed. Response does not look like HTML."
-            echo "::endgroup::"
-            exit 1
-          fi
-
-          echo "Production frontend check passed"
-          echo "::endgroup::"
+          [ "${curl_exit}" -ne 0 ] && { echo "::error::Dev frontend unreachable."; exit 1; }
+          { [ "${status}" -lt 200 ] || [ "${status}" -ge 400 ]; } && { echo "::error::HTTP ${status}."; exit 1; }
+          [[ "${body}" != *"<html"* ]] && { echo "::error::Response is not HTML."; exit 1; }
+          echo "Dev frontend ✓"

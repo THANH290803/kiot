@@ -1,14 +1,14 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { Store } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { Eye, EyeOff, Store } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense, useEffect, useState } from "react"
 import { useAuth } from "@/app/auth-context"
 
 function getErrorMessage(error: unknown) {
@@ -20,20 +20,57 @@ function getErrorMessage(error: unknown) {
   return "Đăng nhập thất bại"
 }
 
-export function LoginScreen() {
+function normalizeRoleName(value?: string) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "")
+}
+
+function resolveLoginDestination(redirectPath: string) {
+  if (typeof window === "undefined") {
+    return redirectPath
+  }
+
+  const savedUser = localStorage.getItem("user")
+  if (!savedUser) {
+    return redirectPath
+  }
+
+  try {
+    const parsedUser = JSON.parse(savedUser) as { role?: { name?: string } }
+    const normalizedRole = normalizeRoleName(parsedUser?.role?.name)
+    if (normalizedRole === "admin" || normalizedRole === "masteradmin") {
+      return "/admin/dashboard"
+    }
+  } catch (error) {
+    console.error("Resolve login destination error:", error)
+  }
+
+  return redirectPath
+}
+
+function LoginScreenContent() {
   const router = useRouter()
-  const { login, isAuthenticated } = useAuth()
+  const searchParams = useSearchParams()
+  const { login, verifyTwoFactor, isAuthenticated } = useAuth()
+  const redirectPath = searchParams.get("redirect") || "/admin/dashboard"
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [otpCode, setOtpCode] = useState("")
+  const [loginStep, setLoginStep] = useState<"credentials" | "otp">("credentials")
+  const [tempToken, setTempToken] = useState("")
+  const [maskedEmail, setMaskedEmail] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace("/admin/dashboard")
+      router.replace(resolveLoginDestination(redirectPath))
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, redirectPath, router])
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -47,8 +84,38 @@ export function LoginScreen() {
     }
 
     try {
-      await login(username, password, rememberMe)
-      router.replace("/admin/dashboard")
+      const response = await login(username, password, rememberMe)
+
+      if ("requires_2fa" in response && response.requires_2fa) {
+        setLoginStep("otp")
+        setTempToken(response.temp_token)
+        setMaskedEmail(response.masked_email)
+        setOtpCode("")
+        setIsLoading(false)
+        return
+      }
+
+      router.replace(resolveLoginDestination(redirectPath))
+    } catch (error) {
+      setError(getErrorMessage(error))
+      setIsLoading(false)
+    }
+  }
+
+  const handleVerifyOtp = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setError("")
+    setIsLoading(true)
+
+    if (!otpCode.trim()) {
+      setError("Vui lòng nhập mã OTP đã gửi qua email")
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      await verifyTwoFactor(tempToken, otpCode.trim(), rememberMe)
+      router.replace(resolveLoginDestination(redirectPath))
     } catch (error) {
       setError(getErrorMessage(error))
       setIsLoading(false)
@@ -75,38 +142,115 @@ export function LoginScreen() {
             <CardTitle className="text-xl text-center">Đăng nhập quản trị</CardTitle>
             {/*<CardDescription>Không để business logic rải rác trong route, login đi qua service của feature admin.</CardDescription>*/}
           </CardHeader>
-          <form onSubmit={handleLogin}>
+          <form onSubmit={loginStep === "credentials" ? handleLogin : handleVerifyOtp}>
             <CardContent className="space-y-4">
               {error ? <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">{error}</div> : null}
-              <div className="space-y-2">
-                <Label htmlFor="username">Tên đăng nhập</Label>
-                <Input id="username" placeholder="Nhập username của bạn" value={username} onChange={(event) => setUsername(event.target.value)} disabled={isLoading} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Mật khẩu</Label>
-                <Input id="password" type="password" placeholder="Nhập password của bạn" value={password} onChange={(event) => setPassword(event.target.value)} disabled={isLoading} />
-              </div>
-              <div className="flex items-center gap-2 pt-1">
-                <Checkbox id="remember" checked={rememberMe} onCheckedChange={(checked) => setRememberMe(Boolean(checked))} disabled={isLoading} />
-                <Label htmlFor="remember" className="cursor-pointer text-sm font-normal">
-                  Nhớ tôi
-                </Label>
-              </div>
+              {loginStep === "credentials" ? (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Tên đăng nhập</Label>
+                    <Input id="username" placeholder="Nhập username của bạn" value={username} onChange={(event) => setUsername(event.target.value)} disabled={isLoading} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Mật khẩu</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Nhập password của bạn"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        disabled={isLoading}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        disabled={isLoading}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Checkbox id="remember" checked={rememberMe} onCheckedChange={(checked) => setRememberMe(Boolean(checked))} disabled={isLoading} />
+                    <Label htmlFor="remember" className="cursor-pointer text-sm font-normal">
+                      Nhớ tôi
+                    </Label>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="rounded-lg border border-primary/15 bg-primary/5 p-3 text-sm">
+                    <p className="font-medium text-foreground">Xác thực 2 lớp qua email</p>
+                    <p className="mt-1 text-muted-foreground">
+                      Mã OTP đã được gửi tới <span className="font-medium text-foreground">{maskedEmail}</span>.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="otp-code">Mã OTP</Label>
+                    <Input
+                      id="otp-code"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="Nhập mã 6 số"
+                      value={otpCode}
+                      onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                      disabled={isLoading}
+                    />
+                  </div>
+                </>
+              )}
             </CardContent>
             <CardFooter className="flex flex-col gap-4 pt-8">
-              <Button type="submit" className="h-11 w-full text-base font-medium" disabled={isLoading}>
-                {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
-              </Button>
-              <p className="text-center text-sm text-muted-foreground">
-                Quên mật khẩu?{" "}
-                <Link href="#" className="font-medium text-primary">
-                  Lấy lại mật khẩu
-                </Link>
-              </p>
+              {loginStep === "credentials" ? (
+                <>
+                  <Button type="submit" className="h-11 w-full text-base font-medium" disabled={isLoading}>
+                    {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
+                  </Button>
+                  <p className="text-center text-sm text-muted-foreground">
+                    Quên mật khẩu?{" "}
+                    <Link href="#" className="font-medium text-primary">
+                      Lấy lại mật khẩu
+                    </Link>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Button type="submit" className="h-11 w-full text-base font-medium" disabled={isLoading}>
+                    {isLoading ? "Đang xác thực..." : "Xác nhận OTP"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={isLoading}
+                    onClick={() => {
+                      setLoginStep("credentials")
+                      setOtpCode("")
+                      setTempToken("")
+                      setMaskedEmail("")
+                      setError("")
+                    }}
+                  >
+                    Quay lại đăng nhập
+                  </Button>
+                </>
+              )}
             </CardFooter>
           </form>
         </Card>
       </div>
     </div>
+  )
+}
+
+export function LoginScreen() {
+  return (
+    <Suspense fallback={null}>
+      <LoginScreenContent />
+    </Suspense>
   )
 }

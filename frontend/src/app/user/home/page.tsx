@@ -3,11 +3,15 @@
 import Link from 'next/link'
 import { Header } from '@/features/user/components/header'
 import { Footer } from '@/features/user/components/footer'
+import { ProductGrid } from '@/features/user/components/product-grid'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ChevronRight, Truck, ShieldCheck, RotateCcw } from 'lucide-react'
+import { useHomePage } from '@/features/user/hooks/use-home-page'
 
 export default function HomePage() {
+  const { products, loading, error, brandsCount, featuredCollections } = useHomePage()
+
   return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
@@ -92,7 +96,9 @@ export default function HomePage() {
                 </div>
                 <h3 className="text-xl font-semibold text-foreground mb-3">Chất lượng đảm bảo</h3>
                 <p className="text-muted-foreground">
-                  Tất cả sản phẩm đều được kiểm tra chất lượng kỹ lưỡng
+                  {products.length > 0
+                    ? `${products.length} sản phẩm đang mở bán và được kiểm tra kỹ lưỡng`
+                    : 'Tất cả sản phẩm đều được kiểm tra chất lượng kỹ lưỡng'}
                 </p>
               </Card>
 
@@ -105,10 +111,32 @@ export default function HomePage() {
                 </div>
                 <h3 className="text-xl font-semibold text-foreground mb-3">Hoàn trả dễ dàng</h3>
                 <p className="text-muted-foreground">
-                  Hoàn trả miễn phí trong vòng 30 ngày không yêu cầu
+                  {brandsCount > 0
+                    ? `Sản phẩm chính hãng từ ${brandsCount} thương hiệu uy tín`
+                    : 'Hoàn trả miễn phí trong vòng 30 ngày không yêu cầu'}
                 </p>
               </Card>
             </div>
+          </div>
+        </section>
+
+        {/* New Products */}
+        <section className="py-16 md:py-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground mb-4">
+                Sản phẩm mới
+              </h2>
+              <p className="text-lg text-muted-foreground">
+                Cập nhật trực tiếp từ dữ liệu cửa hàng
+              </p>
+            </div>
+
+            {error ? (
+              <Card className="p-6 text-center text-destructive">{error}</Card>
+            ) : (
+              <ProductGrid products={products.slice(0, 6)} loading={loading} />
+            )}
           </div>
         </section>
 
@@ -124,58 +152,33 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* Collection 1 */}
-              <Link href="/user/shop" className="group overflow-hidden rounded-2xl">
-                <Card className="overflow-hidden h-80 hover:shadow-2xl transition-all duration-300">
-                  <div className="relative w-full h-full">
-                    <img
-                        src="https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500&h=500&fit=crop"
-                        alt="Áo thời trang"
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors flex flex-col justify-end p-6">
-                      <h3 className="text-2xl font-serif font-bold text-white mb-2">Áo mới</h3>
-                      <p className="text-gray-200">Khám phá bộ sưu tập áo thời trang mới nhất</p>
-                    </div>
-                  </div>
-                </Card>
-              </Link>
-
-              {/* Collection 2 */}
-              <Link href="/user/shop" className="group overflow-hidden rounded-2xl">
-                <Card className="overflow-hidden h-80 hover:shadow-2xl transition-all duration-300">
-                  <div className="relative w-full h-full">
-                    <img
-                        src="https://images.unsplash.com/photo-1595777712802-35a6d68a0cac?w=500&h=500&fit=crop"
-                        alt="Váy thời trang"
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors flex flex-col justify-end p-6">
-                      <h3 className="text-2xl font-serif font-bold text-white mb-2">Váy thanh lịch</h3>
-                      <p className="text-gray-200">Các chiếc váy sang trọng cho mọi dịp</p>
-                    </div>
-                  </div>
-                </Card>
-              </Link>
-
-              {/* Collection 3 */}
-              <Link href="/user/shop" className="group overflow-hidden rounded-2xl">
-                <Card className="overflow-hidden h-80 hover:shadow-2xl transition-all duration-300">
-                  <div className="relative w-full h-full">
-                    <img
-                        src="https://images.unsplash.com/photo-1542272604-787c62d465d1?w=500&h=500&fit=crop"
-                        alt="Quần thời trang"
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors flex flex-col justify-end p-6">
-                      <h3 className="text-2xl font-serif font-bold text-white mb-2">Quần cao cấp</h3>
-                      <p className="text-gray-200">Quần denim và quần tây chất lượng</p>
-                    </div>
-                  </div>
-                </Card>
-              </Link>
-            </div>
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {[...Array(3)].map((_, index) => (
+                  <Card key={index} className="h-80 animate-pulse bg-secondary" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {featuredCollections.map((collection) => (
+                  <Link key={collection.id} href="/user/shop" className="group overflow-hidden rounded-2xl">
+                    <Card className="overflow-hidden h-80 hover:shadow-2xl transition-all duration-300">
+                      <div className="relative w-full h-full">
+                        <img
+                          src={collection.image}
+                          alt={collection.name}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors flex flex-col justify-end p-6">
+                          <h3 className="text-2xl font-serif font-bold text-white mb-2">{collection.name}</h3>
+                          <p className="text-gray-200">Khám phá bộ sưu tập {collection.name.toLowerCase()} mới nhất</p>
+                        </div>
+                      </div>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 

@@ -1,6 +1,7 @@
 const express = require("express");
 const brandController = require("../controllers/brand.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
+const { optionalAuthMiddleware } = require("../middlewares/auth.middleware");
 
 const router = express.Router();
 
@@ -45,7 +46,7 @@ const router = express.Router();
  *       200:
  *         description: List of brands
  */
-router.get("/", authMiddleware, brandController.findAll);
+router.get("/", optionalAuthMiddleware, brandController.findAll);
 
 /**
  * @swagger
@@ -67,7 +68,7 @@ router.get("/", authMiddleware, brandController.findAll);
  *       404:
  *         description: Brand not found
  */
-router.get("/:id", authMiddleware, brandController.findOne);
+router.get("/:id", optionalAuthMiddleware, brandController.findOne);
 
 /**
  * @swagger

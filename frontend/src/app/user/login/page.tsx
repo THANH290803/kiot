@@ -1,35 +1,13 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/features/user/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
+import { useLoginPage } from '@/features/user/hooks/use-login-page'
 
 export default function LoginPage() {
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
-    const [error, setError] = useState('')
-    const [isLoading, setIsLoading] = useState(false)
-    const { login } = useAuth()
-    const router = useRouter()
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setError('')
-        setIsLoading(true)
-
-        try {
-            await login(email, password)
-            router.push('/user/profile')
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Đăng nhập thất bại')
-        } finally {
-            setIsLoading(false)
-        }
-    }
+    const { email, password, error, isLoading, setEmail, setPassword, handleSubmit } = useLoginPage()
 
     return (
         <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
@@ -94,16 +72,6 @@ export default function LoginPage() {
                             Đăng ký ngay
                         </Link>
                     </p>
-
-                    <div className="mt-6 pt-6 border-t border-border">
-                        <p className="text-center text-xs text-muted-foreground mb-3">
-                            Tài khoản demo
-                        </p>
-                        <div className="bg-secondary/50 p-3 rounded-lg text-xs space-y-1">
-                            <p><strong>Email:</strong> an@example.com</p>
-                            <p><strong>Mật khẩu:</strong> password123</p>
-                        </div>
-                    </div>
                 </div>
             </Card>
         </div>

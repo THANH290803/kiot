@@ -1,6 +1,7 @@
 const express = require("express");
 const sizeController = require("../controllers/size.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
+const { optionalAuthMiddleware } = require("../middlewares/auth.middleware");
 
 const router = express.Router();
 
@@ -44,7 +45,7 @@ const router = express.Router();
  *               items:
  *                 $ref: '#/components/schemas/Size'
  */
-router.get("/", authMiddleware, sizeController.findAll);
+router.get("/", optionalAuthMiddleware, sizeController.findAll);
 
 /**
  * @swagger
@@ -70,7 +71,7 @@ router.get("/", authMiddleware, sizeController.findAll);
  *       404:
  *         description: Size not found
  */
-router.get("/:id", authMiddleware, sizeController.findOne);
+router.get("/:id", optionalAuthMiddleware, sizeController.findOne);
 
 /**
  * @swagger

@@ -1,11 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
-import { Calendar, Eye, FileDown, Filter, MoreHorizontal, Search } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Calendar, FileDown, Filter, Search } from "lucide-react"
 import { HeaderNav } from "@/features/admin/components/header-nav"
 import {
   getNextOrderStatuses,
+  getOrderChannelClassName,
+  getOrderChannelLabel,
   getOrderStatusClassName,
   getOrderStatusLabel,
   useOrdersPage,
@@ -13,7 +15,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import {
   Pagination,
@@ -25,12 +26,24 @@ import {
 } from "@/components/ui/pagination"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const ORDER_STATUS_SEQUENCE = ["pending", "confirmed", "shipping", "delivered", "completed", "cancelled"] as const
+const ORDER_STATUS_OPTIONS = [
+  { value: "all", label: "Tất cả trạng thái" },
+  { value: "pending", label: "Chờ xác nhận" },
+  { value: "confirmed", label: "Đã xác nhận" },
+  { value: "shipping", label: "Đang giao" },
+  { value: "delivered", label: "Đã giao" },
+  { value: "completed", label: "Hoàn thành" },
+  { value: "cancelled", label: "Đã hủy" },
+] as const
 
 export default function OrdersPage() {
+  const router = useRouter()
   const [openStatusOrderId, setOpenStatusOrderId] = useState<number | null>(null)
   const [pendingStatus, setPendingStatus] = useState<string>("")
+  const [showStatusFilter, setShowStatusFilter] = useState(false)
   const {
     orders,
     isLoading,
@@ -40,12 +53,13 @@ export default function OrdersPage() {
     setKeyword,
     selectedStatus,
     setSelectedStatus,
+    selectedChannel,
+    setSelectedChannel,
     rowsPerPage,
     setRowsPerPage,
     setCurrentPage,
     pagination,
     totalPages,
-    resetFilters,
     updateOrderStatus,
   } = useOrdersPage()
 
@@ -65,42 +79,87 @@ export default function OrdersPage() {
           </div>
         </div>
 
-        <div className="flex gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={keyword}
-              onChange={(event) => {
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <Tabs
+              value={selectedChannel}
+              onValueChange={(value) => {
                 setCurrentPage(1)
-                setKeyword(event.target.value)
+                setSelectedChannel(value)
               }}
-              placeholder="Tìm mã hóa đơn, tên khách hàng..."
-              className="pl-9"
-            />
+              className="shrink-0"
+            >
+              <TabsList className="grid h-[72px] w-full max-w-3xl grid-cols-2 items-stretch overflow-hidden rounded-[10px] border border-slate-200 bg-slate-100 p-0">
+                <TabsTrigger
+                  value="in_store"
+                  className="h-full w-full rounded-none rounded-l-[10px] px-8 py-0 text-[14px] leading-none font-semibold text-slate-600 transition-colors duration-200 data-[state=active]:bg-white data-[state=active]:text-slate-900"
+                >
+                  Tại cửa hàng
+                </TabsTrigger>
+                <TabsTrigger
+                  value="online"
+                  className="h-full w-full rounded-none rounded-r-[10px] px-8 py-0 text-[14px] leading-none font-semibold text-slate-600 transition-colors duration-200 data-[state=active]:bg-white data-[state=active]:text-slate-900"
+                >
+                  Online
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            <div className="ml-auto flex items-center gap-3">
+              <div className="relative w-[320px] max-w-full">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={keyword}
+                  onChange={(event) => {
+                    setCurrentPage(1)
+                    setKeyword(event.target.value)
+                  }}
+                  placeholder="Tìm mã hóa đơn, tên khách hàng..."
+                  className="pl-9"
+                />
+              </div>
+
+              <Button
+                variant={showStatusFilter || selectedStatus !== "all" ? "default" : "outline"}
+                onClick={() => setShowStatusFilter((prev) => !prev)}
+              >
+                <Filter className="h-4 w-4 mr-2" /> Lọc
+              </Button>
+            </div>
           </div>
-          <Select
-            value={selectedStatus}
-            onValueChange={(value) => {
-              setCurrentPage(1)
-              setSelectedStatus(value)
-            }}
-          >
-            <SelectTrigger className="w-[220px]">
-              <SelectValue placeholder="Chọn trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả trạng thái</SelectItem>
-              <SelectItem value="pending">Chờ xác nhận</SelectItem>
-              <SelectItem value="confirmed">Đã xác nhận</SelectItem>
-              <SelectItem value="shipping">Đang giao</SelectItem>
-              <SelectItem value="delivered">Đã giao</SelectItem>
-              <SelectItem value="completed">Hoàn thành</SelectItem>
-              <SelectItem value="cancelled">Đã hủy</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" onClick={resetFilters}>
-            <Filter className="h-4 w-4 mr-2" /> Lọc
-          </Button>
+
+          {showStatusFilter ? (
+            <div className="ml-auto flex w-fit items-center gap-2">
+              <Select
+                value={selectedStatus}
+                onValueChange={(value) => {
+                  setCurrentPage(1)
+                  setSelectedStatus(value)
+                }}
+              >
+                <SelectTrigger className="w-[260px]">
+                  <SelectValue placeholder="Chọn trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ORDER_STATUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setCurrentPage(1)
+                  setSelectedStatus("all")
+                }}
+              >
+                Xóa lọc
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         {error ? <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div> : null}
@@ -112,10 +171,10 @@ export default function OrdersPage() {
                 <TableHead>Mã hóa đơn</TableHead>
                 <TableHead>Thời gian</TableHead>
                 <TableHead>Khách hàng</TableHead>
+                <TableHead>Nguồn đơn</TableHead>
                 <TableHead>HT thanh toán</TableHead>
                 <TableHead className="text-right">Tổng tiền</TableHead>
                 <TableHead className="text-right">Trạng thái</TableHead>
-                <TableHead className="w-[80px] text-center">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -133,17 +192,26 @@ export default function OrdersPage() {
                 </TableRow>
               ) : (
                 orders.map((order) => (
-                  <TableRow key={order.id} className="hover:bg-muted/30">
+                  <TableRow
+                    key={order.id}
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => router.push(`/admin/orders/${order.id}`)}
+                  >
                     <TableCell className="font-bold text-primary">{order.code}</TableCell>
                     <TableCell className="text-sm">{order.time}</TableCell>
                     <TableCell>{order.customer}</TableCell>
+                    <TableCell>
+                      <Badge className={getOrderChannelClassName(order.channel)}>
+                        {getOrderChannelLabel(order.channel)}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="font-normal">
                         {order.payment}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right font-bold">{order.total.toLocaleString("vi-VN")} đ</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                       <Popover
                         open={openStatusOrderId === order.id}
                         onOpenChange={(nextOpen) => {
@@ -219,22 +287,6 @@ export default function OrdersPage() {
                           </div>
                         </PopoverContent>
                       </Popover>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/admin/orders/${order.id}`} className="flex items-center cursor-pointer">
-                              <Eye className="h-4 w-4 mr-2" /> Chi tiết
-                            </Link>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))

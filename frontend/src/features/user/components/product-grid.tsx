@@ -4,12 +4,15 @@ import { ProductCard } from './product-card'
 
 interface Product {
     id: string
+    productVariantId?: number
     name: string
     price: number
     image: string
     category: string
     rating: number
     reviews: number
+    defaultSize?: string
+    defaultColor?: string
 }
 
 interface ProductGridProps {

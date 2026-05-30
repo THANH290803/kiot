@@ -28,6 +28,8 @@ import { useColors, Color } from "@/features/admin/hooks/useColors"
 
 
 function AttributesPageContent() {
+  const [activeTab, setActiveTab] = useState("colors")
+
   // =================== Size ===========================
   const {
     sizes,
@@ -154,9 +156,92 @@ function AttributesPageContent() {
             <h1 className="text-2xl font-bold tracking-tight">Quản lý thuộc tính sản phẩm</h1>
             <p className="text-sm text-muted-foreground">Quản lý màu sắc, kích cỡ và các thuộc tính khác</p>
           </div>
+          {activeTab === "colors" ? (
+            <Dialog open={isAddColorOpen} onOpenChange={setIsAddColorOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-primary">
+                  <Plus className="h-4 w-4 mr-2" /> Thêm màu sắc
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Thêm màu sắc mới</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="color-name">Tên màu</Label>
+                    <Input id="color-name" placeholder="Nhập tên màu..." value={colorName} onChange={(e) => setColorName(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="color-code">Mã màu (Hex)</Label>
+                    <div className="flex gap-2">
+                      <Input id="color-code" type="color" className="w-16 h-10" defaultValue="#000000" value={colorCode} onChange={(e) => setColorCode(e.target.value)} />
+                      <Input placeholder="#000000" className="flex-1" value={colorCode}
+                        onChange={(e) => setColorCode(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAddColorOpen(false)}>
+                    Hủy
+                  </Button>
+                  <Button className="bg-primary" onClick={handleCreateColor}>
+                    Lưu
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          ) : null}
+          {activeTab === "sizes" ? (
+            <Dialog open={isAddSizeOpen} onOpenChange={setIsAddSizeOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-primary">
+                  <Plus className="h-4 w-4 mr-2" /> Thêm kích cỡ
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Thêm kích cỡ mới</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="size-name">Tên kích cỡ</Label>
+                    <Input id="size-name"
+                      placeholder="VD: S, M, L, XL..."
+                      value={sizeName}
+                      onChange={(e) => setSizeName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="size-desc">Mô tả</Label>
+                    <Input id="size-desc"
+                      placeholder="VD: Small, Medium..."
+                      value={sizeDescription}
+                      onChange={(e) => setSizeDescription(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => {
+                    setIsAddSizeOpen(false)
+                    setSizeName("")
+                    setSizeDescription("")
+                  }} >
+                    Hủy
+                  </Button>
+                  <Button className="bg-primary"
+                    onClick={handleCreateSize}
+                    disabled={!sizeName.trim()}
+                  >
+                    Lưu
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          ) : null}
         </div>
 
-        <Tabs defaultValue="colors" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList>
             <TabsTrigger value="colors">Màu sắc</TabsTrigger>
             <TabsTrigger value="sizes">Kích cỡ</TabsTrigger>
@@ -170,45 +255,9 @@ function AttributesPageContent() {
                     <Palette className="h-5 w-5 text-primary" />
                     Danh sách màu sắc
                   </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <div className="relative w-full md:w-64">
-                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="Tìm kiếm màu..." className="pl-8" />
-                    </div>
-                    <Dialog open={isAddColorOpen} onOpenChange={setIsAddColorOpen}>
-                      <DialogTrigger asChild>
-                        <Button className="bg-primary">
-                          <Plus className="h-4 w-4" /> Thêm màu sắc {/* mr2 */}
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Thêm màu sắc mới</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="color-name">Tên màu</Label>
-                            <Input id="color-name" placeholder="Nhập tên màu..." value={colorName} onChange={(e) => setColorName(e.target.value)} />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="color-code">Mã màu (Hex)</Label>
-                            <div className="flex gap-2">
-                              <Input id="color-code" type="color" className="w-16 h-10" defaultValue="#000000" value={colorCode} onChange={(e) => setColorCode(e.target.value)} />
-                              <Input placeholder="#000000" className="flex-1" value={colorCode}
-                                onChange={(e) => setColorCode(e.target.value)} />
-                            </div>
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button variant="outline" onClick={() => setIsAddColorOpen(false)}>
-                            Hủy
-                          </Button>
-                          <Button className="bg-primary" onClick={handleCreateColor}>
-                            Lưu
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
+                  <div className="relative w-full md:w-64">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Tìm kiếm màu..." className="pl-8" />
                   </div>
                 </div>
               </CardHeader>
@@ -323,56 +372,9 @@ function AttributesPageContent() {
                     <Ruler className="h-5 w-5 text-primary" />
                     Danh sách kích cỡ
                   </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <div className="relative w-full md:w-64">
-                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="Tìm kiếm kích cỡ..." className="pl-8" />
-                    </div>
-                    <Dialog open={isAddSizeOpen} onOpenChange={setIsAddSizeOpen}>
-                      <DialogTrigger asChild>
-                        <Button className="bg-primary">
-                          <Plus className="h-4 w-4" /> Thêm kích cỡ
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Thêm kích cỡ mới</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="size-name">Tên kích cỡ</Label>
-                            <Input id="size-name"
-                              placeholder="VD: S, M, L, XL..."
-                              value={sizeName}
-                              onChange={(e) => setSizeName(e.target.value)}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="size-desc">Mô tả</Label>
-                            <Input id="size-desc"
-                              placeholder="VD: Small, Medium..."
-                              value={sizeDescription}
-                              onChange={(e) => setSizeDescription(e.target.value)}
-                            />
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button variant="outline" onClick={() => {
-                            setIsAddSizeOpen(false)
-                            setSizeName("")
-                            setSizeDescription("")
-                          }} >
-                            Hủy
-                          </Button>
-                          <Button className="bg-primary"
-                            onClick={handleCreateSize}
-                            disabled={!sizeName.trim()}
-                          >
-                            Lưu
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
+                  <div className="relative w-full md:w-64">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Tìm kiếm kích cỡ..." className="pl-8" />
                   </div>
                 </div>
               </CardHeader>

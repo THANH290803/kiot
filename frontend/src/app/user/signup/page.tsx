@@ -1,48 +1,25 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/features/user/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
+import { useSignupPage } from '@/features/user/hooks/use-signup-page'
 
 export default function SignupPage() {
-    const [name, setName] = useState('')
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
-    const [confirmPassword, setConfirmPassword] = useState('')
-    const [error, setError] = useState('')
-    const [isLoading, setIsLoading] = useState(false)
-    const { signup } = useAuth()
-    const router = useRouter()
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setError('')
-
-        if (password !== confirmPassword) {
-            setError('Mật khẩu không khớp')
-            return
-        }
-
-        if (password.length < 6) {
-            setError('Mật khẩu phải có ít nhất 6 ký tự')
-            return
-        }
-
-        setIsLoading(true)
-
-        try {
-            await signup(name, email, password)
-            router.push('/user/profile')
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Đăng ký thất bại')
-        } finally {
-            setIsLoading(false)
-        }
-    }
+    const {
+        name,
+        email,
+        password,
+        confirmPassword,
+        error,
+        isLoading,
+        setName,
+        setEmail,
+        setPassword,
+        setConfirmPassword,
+        handleSubmit,
+    } = useSignupPage()
 
     return (
         <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">

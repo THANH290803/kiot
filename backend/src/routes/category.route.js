@@ -1,6 +1,7 @@
 const express = require("express");
 const categoryController = require("../controllers/category.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
+const { optionalAuthMiddleware } = require("../middlewares/auth.middleware");
 
 const router = express.Router();
 
@@ -48,7 +49,7 @@ const router = express.Router();
  *               items:
  *                 $ref: '#/components/schemas/Category'
  */
-router.get("/", authMiddleware, categoryController.findAll);
+router.get("/", optionalAuthMiddleware, categoryController.findAll);
 
 /**
  * @swagger
@@ -72,7 +73,7 @@ router.get("/", authMiddleware, categoryController.findAll);
  *             schema:
  *               $ref: '#/components/schemas/Category'
  */
-router.get("/:id", authMiddleware, categoryController.findOne);
+router.get("/:id", optionalAuthMiddleware, categoryController.findOne);
 
 /**
  * @swagger

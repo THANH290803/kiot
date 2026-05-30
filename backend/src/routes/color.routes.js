@@ -1,6 +1,7 @@
 const express = require("express");
 const colorController = require("../controllers/color.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
+const { optionalAuthMiddleware } = require("../middlewares/auth.middleware");
 
 const router = express.Router();
 
@@ -50,7 +51,7 @@ const router = express.Router();
  *               items:
  *                 $ref: '#/components/schemas/Color'
  */
-router.get("/", authMiddleware, colorController.findAll);
+router.get("/", optionalAuthMiddleware, colorController.findAll);
 
 /**
  * @swagger
@@ -76,7 +77,7 @@ router.get("/", authMiddleware, colorController.findAll);
  *       404:
  *         description: Not found
  */
-router.get("/:id", authMiddleware, colorController.findOne);
+router.get("/:id", optionalAuthMiddleware, colorController.findOne);
 
 /**
  * @swagger

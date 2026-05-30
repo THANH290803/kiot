@@ -1,6 +1,7 @@
 const express = require("express");
 const productController = require("../controllers/product.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
+const { optionalAuthMiddleware } = require("../middlewares/auth.middleware");
 const upload = require("../middlewares/upload.middleware");
 
 const router = express.Router();
@@ -229,7 +230,7 @@ router.post(
  */
 router.get(
     "/get-all-with-variants",
-    authMiddleware,
+    optionalAuthMiddleware,
     productController.getAllProductsWithVariants
 );
 
@@ -363,7 +364,7 @@ router.get(
  */
 router.get(
     "/get-details-with-variants/:id",
-    authMiddleware,
+    optionalAuthMiddleware,
     productController.getProductDetailsWithVariants
 );
 
@@ -475,7 +476,7 @@ router.get(
  *                     totalPages:
  *                       type: integer
  */
-router.get("/", authMiddleware, productController.findAll);
+router.get("/", optionalAuthMiddleware, productController.findAll);
 
 /**
  * @swagger
@@ -497,7 +498,7 @@ router.get("/", authMiddleware, productController.findAll);
  *       404:
  *         description: Product not found
  */
-router.get("/:id", authMiddleware, productController.findOne);
+router.get("/:id", optionalAuthMiddleware, productController.findOne);
 
 /**
  * @swagger

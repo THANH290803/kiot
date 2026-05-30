@@ -1,6 +1,7 @@
 // hooks/usePermissions.ts
 import { useEffect, useState, useCallback } from "react"
 import api from "@/lib/api"
+import { useAdminPermissions } from "@/features/admin/providers/admin-permission-provider"
 
 /* ================= TYPES ================= */
 export interface Permission {
@@ -33,6 +34,7 @@ interface UpdatePermissionPayload {
 }
 
 export function usePermissions() {
+    const { hasPermission } = useAdminPermissions()
     /* ================= STATE ================= */
     const [permissions, setPermissions] = useState<Permission[]>([])
     const [loading, setLoading] = useState(false)
@@ -87,6 +89,12 @@ export function usePermissions() {
 
     /* ================= CRUD ================= */
     const createPermission = async (payload: CreatePermissionPayload) => {
+        if (!hasPermission(["permissions.create"])) {
+            if (typeof window !== "undefined") {
+                window.alert("Bạn không có quyền thêm quyền hạn.")
+            }
+            return
+        }
         await api.post("/api/permissions", payload)
         await fetchPermissions()
     }
@@ -95,11 +103,23 @@ export function usePermissions() {
         id: number,
         payload: UpdatePermissionPayload
     ) => {
+        if (!hasPermission(["permissions.update", "permissions.edit"])) {
+            if (typeof window !== "undefined") {
+                window.alert("Bạn không có quyền cập nhật quyền hạn.")
+            }
+            return
+        }
         await api.patch(`/api/permissions/${id}`, payload)
         await fetchPermissions()
     }
 
     const deletePermission = async (id: number) => {
+        if (!hasPermission(["permissions.delete"])) {
+            if (typeof window !== "undefined") {
+                window.alert("Bạn không có quyền xóa quyền hạn.")
+            }
+            return
+        }
         await api.delete(`/api/permissions/${id}`)
         setSelectedIds(prev => prev.filter(i => i !== id))
         await fetchPermissions()
@@ -107,6 +127,12 @@ export function usePermissions() {
 
     /* ================= BULK UPDATE GROUP ================= */
     const assignGroupToSelected = async (group_id: number) => {
+        if (!hasPermission(["permission_groups.manage", "permissions.update", "permissions.edit"])) {
+            if (typeof window !== "undefined") {
+                window.alert("Bạn không có quyền gán nhóm quyền.")
+            }
+            return
+        }
         await Promise.all(
             selectedIds.map(id =>
                 api.patch(`/api/permissions/${id}`, { group_id })

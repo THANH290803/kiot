@@ -3,6 +3,7 @@ const router = express.Router();
 
 const productVariantController = require("../controllers/product_variant.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
+const { optionalAuthMiddleware } = require("../middlewares/auth.middleware");
 
 /**
  * @swagger
@@ -34,7 +35,7 @@ const authMiddleware = require("../middlewares/auth.middleware");
  */
 router.get(
     "/",
-    authMiddleware,
+    optionalAuthMiddleware,
     productVariantController.findAll
 );
 
@@ -60,7 +61,7 @@ router.get(
  */
 router.get(
     "/:id",
-    authMiddleware,
+    optionalAuthMiddleware,
     productVariantController.findOne
 );
 

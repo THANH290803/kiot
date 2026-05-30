@@ -1,5 +1,6 @@
 const express = require("express");
 const authController = require("../controllers/auth.controller");
+const authMiddleware = require("../middlewares/auth.middleware");
 
 const app = express();
 
@@ -61,6 +62,193 @@ const app = express();
  */
 
 app.post("/login", authController.login);
+
+/**
+ * @swagger
+ * /api/auth/login/verify-2fa:
+ *   post:
+ *     summary: Verify admin login OTP when 2FA is enabled
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - temp_token
+ *               - otp_code
+ *             properties:
+ *               temp_token:
+ *                 type: string
+ *               otp_code:
+ *                 type: string
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: Login verified successfully
+ *       400:
+ *         description: Invalid or expired OTP
+ *       404:
+ *         description: User not found
+ */
+app.post("/login/verify-2fa", authController.verifyLoginTwoFactor);
+
+/**
+ * @swagger
+ * /api/auth/customer-login:
+ *   post:
+ *     summary: Login customer account
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: customer@example.com
+ *               password:
+ *                 type: string
+ *                 example: 123456
+ *     responses:
+ *       200:
+ *         description: Login successfully
+ *       400:
+ *         description: Invalid credentials
+ *       404:
+ *         description: Customer not found
+ */
+app.post("/customer-login", authController.customerLogin);
+
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register customer account (store in customers table)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Nguyen Van A
+ *               email:
+ *                 type: string
+ *                 example: customer@example.com
+ *               password:
+ *                 type: string
+ *                 example: 123456
+ *               phone_number:
+ *                 type: string
+ *                 example: 0912345678
+ *               address:
+ *                 type: string
+ *                 example: District 1, Ho Chi Minh City
+ *     responses:
+ *       201:
+ *         description: Register successfully
+ *       400:
+ *         description: Invalid payload
+ *       409:
+ *         description: Email or phone already registered
+ *       500:
+ *         description: Server error
+ */
+app.post("/register", authController.register);
+
+/**
+ * @swagger
+ * /api/auth/2fa/status:
+ *   get:
+ *     summary: Get current admin 2FA status
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current 2FA status
+ *       401:
+ *         description: Unauthorized
+ */
+app.get("/2fa/status", authMiddleware, authController.getTwoFactorStatus);
+
+/**
+ * @swagger
+ * /api/auth/2fa/request:
+ *   post:
+ *     summary: Send OTP email to enable or disable 2FA
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - action
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [enable, disable]
+ *     responses:
+ *       200:
+ *         description: OTP sent
+ *       400:
+ *         description: Invalid action or current state
+ *       401:
+ *         description: Unauthorized
+ */
+app.post("/2fa/request", authMiddleware, authController.requestTwoFactorAction);
+
+/**
+ * @swagger
+ * /api/auth/2fa/confirm:
+ *   post:
+ *     summary: Confirm enable or disable 2FA using OTP
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - action
+ *               - otp_code
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [enable, disable]
+ *               otp_code:
+ *                 type: string
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: 2FA state updated
+ *       400:
+ *         description: Invalid or expired OTP
+ *       401:
+ *         description: Unauthorized
+ */
+app.post("/2fa/confirm", authMiddleware, authController.confirmTwoFactorAction);
 
 /**
  * @swagger

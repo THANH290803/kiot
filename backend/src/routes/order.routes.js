@@ -25,6 +25,9 @@ const router = express.Router();
  *         customer_id:
  *           type: integer
  *           nullable: true
+ *         customer_voucher_id:
+ *           type: integer
+ *           nullable: true
  *         user_id:
  *           type: integer
  *         total_quantity:
@@ -42,6 +45,8 @@ const router = express.Router();
  *           nullable: true
  *         customer:
  *           $ref: '#/components/schemas/Customer'
+ *         customerVoucher:
+ *           $ref: '#/components/schemas/CustomerVoucher'
  *         user:
  *           $ref: '#/components/schemas/User'
  *         orderItems:
@@ -93,6 +98,9 @@ const router = express.Router();
  *         customer_id:
  *           type: integer
  *           description: Optional customer ID
+ *         customer_voucher_id:
+ *           type: integer
+ *           description: Optional customer voucher ID. Must belong to the selected customer.
  *         user_id:
  *           type: integer
  *           description: Required user ID who created the order

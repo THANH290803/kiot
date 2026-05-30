@@ -4,6 +4,8 @@ const { Op } = require("sequelize");
 const Order = db.Order;
 const OrderItem = db.OrderItem;
 const Customer = db.Customer;
+const CustomerVoucher = db.CustomerVoucher;
+const Voucher = db.Voucher;
 const User = db.User;
 const Product = db.Product;
 const ProductVariant = db.ProductVariant;
@@ -19,11 +21,25 @@ const orderStatusTransitions = {
   cancelled: [],
 };
 
+const orderChannels = ["online", "in_store"];
+
 const includeRelations = [
   {
     model: Customer,
     as: "customer",
     attributes: ["id", "name", "email", "phone_number"],
+  },
+  {
+    model: CustomerVoucher,
+    as: "customerVoucher",
+    attributes: ["id", "customer_id", "voucher_id", "status", "assigned_at", "used_at", "expired_at"],
+    include: [
+      {
+        model: Voucher,
+        as: "voucher",
+        attributes: ["id", "code", "description", "discount_type", "discount_value", "status", "start_date", "end_date"],
+      },
+    ],
   },
   {
     model: User,
@@ -37,7 +53,7 @@ const includeRelations = [
       {
         model: Product,
         as: "product",
-        attributes: ["id", "name"],
+        attributes: ["id", "name", "avatar"],
       },
       {
         model: ProductVariant,
@@ -47,7 +63,7 @@ const includeRelations = [
           {
             model: Product,
             as: "product",
-            attributes: ["id", "name"],
+            attributes: ["id", "name", "avatar"],
           },
           {
             model: Color,
@@ -69,13 +85,16 @@ const formatOrder = (order) => ({
   id: order.id,
   order_code: order.order_code,
   customer_id: order.customer_id,
+  customer_voucher_id: order.customer_voucher_id,
   user_id: order.user_id,
   total_quantity: order.total_quantity,
   total_amount: order.total_amount,
   payment_method: order.payment_method,
+  channel: order.channel,
   status: order.status,
   note: order.note,
   customer: order.customer,
+  customerVoucher: order.customerVoucher,
   user: order.user,
   orderItems: order.orderItems?.map((item) => ({
     id: item.id,
@@ -105,6 +124,46 @@ function generateOrderCode() {
   return `ORD-${timestamp}-${random}`;
 }
 
+async function restoreCustomerVoucherForOrder(order, transaction) {
+  if (!order.customer_voucher_id) {
+    return;
+  }
+
+  const customerVoucher = await CustomerVoucher.findOne({
+    where: {
+      id: order.customer_voucher_id,
+      deleted_at: null,
+    },
+    include: [
+      {
+        model: Voucher,
+        as: "voucher",
+      },
+    ],
+    transaction,
+  });
+
+  if (!customerVoucher || !customerVoucher.voucher) {
+    return;
+  }
+
+  await customerVoucher.update(
+    {
+      status: "available",
+      used_at: null,
+    },
+    { transaction }
+  );
+
+  const nextUsedCount = Math.max(0, Number(customerVoucher.voucher.used_count || 0) - 1);
+  await customerVoucher.voucher.update(
+    {
+      used_count: nextUsedCount,
+    },
+    { transaction }
+  );
+}
+
 // ================= CREATE =================
 // Create order with order items
 exports.create = async (req, res) => {
@@ -113,19 +172,95 @@ exports.create = async (req, res) => {
   try {
     const {
       customer_id,
+      customer_voucher_id,
       user_id,
       order_items,
       payment_method = "cash",
+      channel,
       status = "pending",
       note,
     } = req.body;
 
+    const tokenUserId = req.user?.id ? Number(req.user.id) : null;
+    const isCustomerToken = req.user?.type === "customer";
+
+    const resolvedCustomerId = isCustomerToken
+      ? tokenUserId
+      : (customer_id ? Number(customer_id) : null);
+    const resolvedCustomerVoucherId = customer_voucher_id ? Number(customer_voucher_id) : null;
+    const resolvedUserId = isCustomerToken
+      ? null
+      : (user_id ? Number(user_id) : tokenUserId);
+    const resolvedChannel = isCustomerToken
+      ? "online"
+      : (orderChannels.includes(channel) ? channel : "in_store");
+
     // Validate required fields
-    if (!user_id) {
-      return res.status(400).json({ message: "user_id is required" });
+    if (!resolvedUserId && !resolvedCustomerId) {
+      return res.status(400).json({ message: "user_id or customer_id is required" });
+    }
+    if (!orderChannels.includes(resolvedChannel)) {
+      return res.status(400).json({ message: "channel must be online or in_store" });
     }
     if (!order_items || !Array.isArray(order_items) || order_items.length === 0) {
       return res.status(400).json({ message: "order_items is required and must be a non-empty array" });
+    }
+
+    let resolvedCustomerVoucher = null;
+    if (resolvedCustomerVoucherId) {
+      resolvedCustomerVoucher = await CustomerVoucher.findOne({
+        where: {
+          id: resolvedCustomerVoucherId,
+          deleted_at: null,
+        },
+        include: [
+          {
+            model: Voucher,
+            as: "voucher",
+          },
+        ],
+        transaction,
+      });
+
+      if (!resolvedCustomerVoucher) {
+        await transaction.rollback();
+        return res.status(404).json({ message: "Customer voucher not found" });
+      }
+
+      if (!resolvedCustomerId || resolvedCustomerVoucher.customer_id !== resolvedCustomerId) {
+        await transaction.rollback();
+        return res.status(400).json({ message: "customer_voucher_id does not belong to the selected customer" });
+      }
+
+      if (resolvedCustomerVoucher.status !== "available") {
+        await transaction.rollback();
+        return res.status(400).json({ message: "Customer voucher is not available" });
+      }
+
+      const voucher = resolvedCustomerVoucher.voucher;
+      const now = new Date();
+      const voucherStartDate = new Date(voucher.start_date);
+      const voucherEndDate = new Date(voucher.end_date);
+
+      if (voucher.status !== "active") {
+        await transaction.rollback();
+        return res.status(400).json({ message: "Voucher is not active" });
+      }
+
+      if (voucherStartDate > now || voucherEndDate < now) {
+        await transaction.rollback();
+        return res.status(400).json({ message: "Voucher is outside the valid date range" });
+      }
+
+      if (resolvedCustomerVoucher.expired_at && new Date(resolvedCustomerVoucher.expired_at) < now) {
+        await transaction.rollback();
+        return res.status(400).json({ message: "Customer voucher has expired" });
+      }
+
+      if (voucher.max_use > 0 && voucher.used_count >= voucher.max_use) {
+        await transaction.rollback();
+        return res.status(400).json({ message: "Voucher usage limit has been reached" });
+      }
     }
 
     // Generate unique order code
@@ -206,11 +341,13 @@ exports.create = async (req, res) => {
     const order = await Order.create(
       {
         order_code: orderCode,
-        customer_id: customer_id || null,
-        user_id,
+        customer_id: resolvedCustomerId,
+        customer_voucher_id: resolvedCustomerVoucherId,
+        user_id: resolvedUserId,
         total_quantity: totalQuantity,
         total_amount: totalAmount,
         payment_method,
+        channel: resolvedChannel,
         status,
         note,
       },
@@ -224,6 +361,23 @@ exports.create = async (req, res) => {
     }));
 
     await OrderItem.bulkCreate(orderItemsData, { transaction });
+
+    if (resolvedCustomerVoucher) {
+      await resolvedCustomerVoucher.update(
+        {
+          status: "used",
+          used_at: new Date(),
+        },
+        { transaction }
+      );
+
+      await resolvedCustomerVoucher.voucher.update(
+        {
+          used_count: resolvedCustomerVoucher.voucher.used_count + 1,
+        },
+        { transaction }
+      );
+    }
 
     await transaction.commit();
 
@@ -243,7 +397,7 @@ exports.create = async (req, res) => {
 // ================= GET ALL (CHƯA XOÁ, SEARCH THEO ORDER_CODE, CUSTOMER NAME) =================
 exports.findAll = async (req, res) => {
   try {
-    const { keyword, order_code, customer_name, status, page = 1, limit = 10 } = req.query;
+    const { keyword, order_code, customer_name, status, channel, page = 1, limit = 10 } = req.query;
 
     const where = { deleted_at: null };
     const include = [...includeRelations];
@@ -260,6 +414,12 @@ exports.findAll = async (req, res) => {
     // Filter by status
     if (status) {
       where.status = status;
+    }
+    if (channel) {
+      if (!orderChannels.includes(channel)) {
+        return res.status(400).json({ message: "channel must be online or in_store" });
+      }
+      where.channel = channel;
     }
 
     // Pagination
@@ -386,6 +546,10 @@ exports.updateStatus = async (req, res) => {
       });
     }
 
+    if (status === "cancelled") {
+      await restoreCustomerVoucherForOrder(order, transaction);
+    }
+
     await order.update({ status }, { transaction });
     await transaction.commit();
 
@@ -419,6 +583,8 @@ exports.delete = async (req, res) => {
     }
 
     // Soft delete order
+    await restoreCustomerVoucherForOrder(order, transaction);
+
     await order.update({ deleted_at: new Date() }, { transaction });
 
     // Soft delete order items

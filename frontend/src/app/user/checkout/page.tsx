@@ -1,40 +1,105 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useCart } from '@/features/user/lib/cart-context'
-import { useAuth } from '@/features/user/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Header } from '@/features/user/components/header'
 import { Footer } from '@/features/user/components/footer'
+import { Check, ChevronsUpDown } from 'lucide-react'
+import { SelectOption, useCheckoutPage } from '@/features/user/hooks/use-checkout-page'
+
+interface SearchableSelectProps {
+    label: string
+    placeholder: string
+    searchPlaceholder: string
+    options: SelectOption[]
+    value: string
+    disabled?: boolean
+    emptyText?: string
+    onValueChange: (value: string) => void
+}
+
+function SearchableSelect({
+    label,
+    placeholder,
+    searchPlaceholder,
+    options,
+    value,
+    disabled,
+    emptyText,
+    onValueChange,
+}: SearchableSelectProps) {
+    const [open, setOpen] = useState(false)
+    const selectedOption = options.find((option) => option.id === value)
+
+    return (
+        <div>
+            <label className="block text-sm font-medium text-foreground mb-2">{label}</label>
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        disabled={disabled}
+                        className="w-full justify-between font-normal"
+                    >
+                        <span className="truncate">{selectedOption?.name || placeholder}</span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command>
+                        <CommandInput placeholder={searchPlaceholder} />
+                        <CommandList>
+                            <CommandEmpty>{emptyText || 'Không có dữ liệu'}</CommandEmpty>
+                            {options.map((option) => (
+                                <CommandItem
+                                    key={option.id}
+                                    value={`${option.id} ${option.name}`}
+                                    onSelect={() => {
+                                        onValueChange(option.id)
+                                        setOpen(false)
+                                    }}
+                                >
+                                    <Check className={`mr-2 h-4 w-4 ${value === option.id ? 'opacity-100' : 'opacity-0'}`} />
+                                    {option.name}
+                                </CommandItem>
+                            ))}
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
+        </div>
+    )
+}
 
 export default function CheckoutPage() {
-    const router = useRouter()
-    const { items, getTotalPrice, clearCart } = useCart()
-    const { user } = useAuth()
-    const [isProcessing, setIsProcessing] = useState(false)
-    const [orderPlaced, setOrderPlaced] = useState(false)
-
-    const [formData, setFormData] = useState({
-        name: user?.name || '',
-        email: user?.email || '',
-        phone: user?.phone || '',
-        address: user?.address || '',
-        city: '',
-        district: '',
-        ward: '',
-        notes: '',
-        paymentMethod: 'cod',
-    })
-
-    useEffect(() => {
-        if (items.length === 0 && !orderPlaced) {
-            router.push('/user/cart')
-        }
-    }, [items, router, orderPlaced])
+    const {
+        user,
+        items,
+        formData,
+        isProcessing,
+        orderPlaced,
+        selectedProvinceId,
+        selectedDistrictId,
+        selectedWardId,
+        provinceOptions,
+        districtOptions,
+        wardOptions,
+        handleInputChange,
+        handleProvinceChange,
+        handleDistrictChange,
+        handleWardChange,
+        handleSubmit,
+        formatPrice,
+        getTotalPrice,
+    } = useCheckoutPage()
 
     if (!user) {
         return (
@@ -65,47 +130,6 @@ export default function CheckoutPage() {
         )
     }
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }))
-    }
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setIsProcessing(true)
-
-        // Simulate payment processing
-        await new Promise(resolve => setTimeout(resolve, 2000))
-
-        // Create new order and store in localStorage
-        const newOrder = {
-            id: `ORD-${Date.now()}`,
-            userId: user?.id || '',
-            items: items,
-            total: getTotalPrice(),
-            status: 'processing' as const,
-            createdAt: new Date().toISOString().split('T')[0],
-            deliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        }
-
-        // Get existing orders from localStorage
-        const existingOrders = JSON.parse(localStorage.getItem('user_orders') || '[]')
-        existingOrders.push(newOrder)
-        localStorage.setItem('user_orders', JSON.stringify(existingOrders))
-
-        // Clear cart and show success message
-        clearCart()
-        setOrderPlaced(true)
-
-        // Redirect to profile
-        setTimeout(() => {
-            router.push('/user/profile')
-        }, 2000)
-    }
-
     if (orderPlaced) {
         return (
             <>
@@ -127,14 +151,6 @@ export default function CheckoutPage() {
                 <Footer />
             </>
         )
-    }
-
-    const formatPrice = (price: number) => {
-        return new Intl.NumberFormat('vi-VN', {
-            style: 'currency',
-            currency: 'VND',
-            maximumFractionDigits: 0
-        }).format(price)
     }
 
     return (
@@ -200,48 +216,34 @@ export default function CheckoutPage() {
                                     </div>
 
                                     <div className="grid grid-cols-3 gap-4">
-                                        <div>
-                                            <label htmlFor="city" className="block text-sm font-medium text-foreground mb-2">
-                                                Thành phố/Tỉnh
-                                            </label>
-                                            <Input
-                                                id="city"
-                                                name="city"
-                                                value={formData.city}
-                                                onChange={handleInputChange}
-                                                required
-                                                placeholder="TP.HCM"
-                                                className="w-full"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label htmlFor="district" className="block text-sm font-medium text-foreground mb-2">
-                                                Quận/Huyện
-                                            </label>
-                                            <Input
-                                                id="district"
-                                                name="district"
-                                                value={formData.district}
-                                                onChange={handleInputChange}
-                                                required
-                                                placeholder="Quận 1"
-                                                className="w-full"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label htmlFor="ward" className="block text-sm font-medium text-foreground mb-2">
-                                                Phường/Xã
-                                            </label>
-                                            <Input
-                                                id="ward"
-                                                name="ward"
-                                                value={formData.ward}
-                                                onChange={handleInputChange}
-                                                required
-                                                placeholder="Phường 1"
-                                                className="w-full"
-                                            />
-                                        </div>
+                                        <SearchableSelect
+                                            label="Thành phố/Tỉnh"
+                                            placeholder="Chọn Tỉnh/Thành"
+                                            searchPlaceholder="Tìm tỉnh/thành..."
+                                            options={provinceOptions}
+                                            value={selectedProvinceId}
+                                            onValueChange={handleProvinceChange}
+                                        />
+                                        <SearchableSelect
+                                            label="Quận/Huyện"
+                                            placeholder="Chọn Quận/Huyện"
+                                            searchPlaceholder="Tìm quận/huyện..."
+                                            options={districtOptions}
+                                            value={selectedDistrictId}
+                                            disabled={!selectedProvinceId}
+                                            emptyText="Không có quận/huyện"
+                                            onValueChange={handleDistrictChange}
+                                        />
+                                        <SearchableSelect
+                                            label="Phường/Xã"
+                                            placeholder="Chọn Phường/Xã"
+                                            searchPlaceholder="Tìm phường/xã..."
+                                            options={wardOptions}
+                                            value={selectedWardId}
+                                            disabled={!selectedDistrictId}
+                                            emptyText="Không có phường/xã"
+                                            onValueChange={handleWardChange}
+                                        />
                                     </div>
 
                                     <div>
