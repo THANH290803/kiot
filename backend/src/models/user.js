@@ -50,6 +50,15 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 1,
       comment: '1: active, 0: inactive',
     },
+    is_two_factor_enabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    two_factor_enabled_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     deleted_at: {
       type: DataTypes.DATE,
       allowNull: true,
@@ -63,6 +72,7 @@ module.exports = (sequelize, DataTypes) => {
 
   User.associate = function (models) {
     User.belongsTo(models.Role, { foreignKey: 'role_id', as: 'role' });
+    User.hasMany(models.UserOtpCode, { foreignKey: "user_id", as: "otpCodes" });
   };
 
   return User;

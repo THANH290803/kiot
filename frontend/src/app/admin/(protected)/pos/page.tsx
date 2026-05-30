@@ -742,12 +742,12 @@ export default function POSPage() {
       setShowSuggestions(false)
     } catch (error) {
       console.error("Create POS order error:", error)
-      const errorMessage =
+      const errorMessage: string =
         typeof error === "object" &&
         error !== null &&
         "response" in error &&
         typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
-          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message ?? "Tạo đơn hàng thất bại. Vui lòng thử lại."
           : "Tạo đơn hàng thất bại. Vui lòng thử lại."
       setCheckoutError(errorMessage)
     } finally {

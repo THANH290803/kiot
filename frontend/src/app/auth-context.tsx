@@ -2,12 +2,13 @@
 
 import { createContext, useContext, useState } from "react"
 import { authService } from "@/features/admin/services/auth.service"
-import type { AuthUser } from "@/shared/types/auth"
+import type { AuthUser, LoginResponse } from "@/shared/types/auth"
 
 interface AuthContextType {
   isAuthenticated: boolean
   user: AuthUser | null
-  login: (username: string, password: string, rememberMe?: boolean) => Promise<void>
+  login: (username: string, password: string, rememberMe?: boolean) => Promise<LoginResponse>
+  verifyTwoFactor: (tempToken: string, otpCode: string, rememberMe?: boolean) => Promise<LoginResponse>
   logout: () => void
 }
 
@@ -41,15 +42,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(initialAuthState.user)
   const [isAuthenticated, setIsAuthenticated] = useState(initialAuthState.isAuthenticated)
 
-  const login = async (username: string, password: string, rememberMe = false) => {
-    const { token, user } = await authService.login({ username, password })
-
+  const persistAuth = (token: string, user: AuthUser, rememberMe = false) => {
     localStorage.setItem("token", token)
     localStorage.setItem("user", JSON.stringify(user))
     localStorage.setItem("rememberMe", String(rememberMe))
 
     setUser(user)
     setIsAuthenticated(true)
+  }
+
+  const login = async (username: string, password: string, rememberMe = false) => {
+    const response = await authService.login({ username, password })
+
+    if ("token" in response && response.token) {
+      persistAuth(response.token, response.user, rememberMe)
+    }
+
+    return response
+  }
+
+  const verifyTwoFactor = async (tempToken: string, otpCode: string, rememberMe = false) => {
+    const response = await authService.verifyTwoFactorLogin({
+      temp_token: tempToken,
+      otp_code: otpCode,
+    })
+
+    if ("token" in response && response.token) {
+      persistAuth(response.token, response.user, rememberMe)
+    }
+
+    return response
   }
 
   const logout = () => {
@@ -61,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, login, verifyTwoFactor, logout }}>
       {children}
     </AuthContext.Provider>
   )
