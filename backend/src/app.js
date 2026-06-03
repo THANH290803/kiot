@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const { sequelize } = require("./models");
 const cors = require("cors");
+const dns = require("dns");
 
 const userRoutes = require("./routes/user.routes");
 const swaggerSetup = require("./swagger/swagger");
@@ -21,6 +22,8 @@ const cartRoutes = require("./routes/cart.routes");
 
 const app = express();
 app.use(express.json());
+
+dns.setDefaultResultOrder("ipv4first");
 
 /* =========================
    ✅ CORS CONFIG (LOCAL + PROD)
