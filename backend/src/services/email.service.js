@@ -2,6 +2,14 @@ const nodemailer = require("nodemailer");
 
 let transporter;
 
+function parseBoolean(value, defaultValue = false) {
+  if (value === undefined || value === null || value === "") {
+    return defaultValue;
+  }
+
+  return String(value).toLowerCase() === "true";
+}
+
 function getTransporter() {
   if (transporter) {
     return transporter;
@@ -19,7 +27,8 @@ function getTransporter() {
   transporter = nodemailer.createTransport({
     host,
     port,
-    secure: String(process.env.SMTP_SECURE || "false") === "true",
+    secure: parseBoolean(process.env.SMTP_SECURE, port === 465),
+    family: 4,
     auth: {
       user,
       pass,
