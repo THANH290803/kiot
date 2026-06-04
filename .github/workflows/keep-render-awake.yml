@@ -11,6 +11,7 @@ permissions:
 env:
   DEV_BACKEND_URL: https://kiot-dev.onrender.com
   PROD_BACKEND_URL: https://kiot-7o5h.onrender.com
+  HEALTH_CHECK_TOKEN: ${{ secrets.RENDER_HEALTH_TOKEN }}
 
 concurrency:
   group: keep-render-awake
@@ -25,9 +26,21 @@ jobs:
       - name: Ping development backend
         shell: bash
         run: |
-          curl --fail --silent --show-error --max-time 20 "${DEV_BACKEND_URL}/health"
+          if [ -n "${HEALTH_CHECK_TOKEN}" ]; then
+            curl --fail --silent --show-error --max-time 20 \
+              -H "x-health-check-token: ${HEALTH_CHECK_TOKEN}" \
+              "${DEV_BACKEND_URL}/health"
+          else
+            curl --fail --silent --show-error --max-time 20 "${DEV_BACKEND_URL}/health"
+          fi
 
       - name: Ping production backend
         shell: bash
         run: |
-          curl --fail --silent --show-error --max-time 20 "${PROD_BACKEND_URL}/health"
+          if [ -n "${HEALTH_CHECK_TOKEN}" ]; then
+            curl --fail --silent --show-error --max-time 20 \
+              -H "x-health-check-token: ${HEALTH_CHECK_TOKEN}" \
+              "${PROD_BACKEND_URL}/health"
+          else
+            curl --fail --silent --show-error --max-time 20 "${PROD_BACKEND_URL}/health"
+          fi

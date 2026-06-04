@@ -2,6 +2,8 @@ require("dotenv").config();
 const express = require("express");
 const { sequelize } = require("./models");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const dns = require("dns");
 dns.setDefaultResultOrder("ipv4first");
 
@@ -22,18 +24,57 @@ const imageRoutes = require("./routes/image.routes");
 const cartRoutes = require("./routes/cart.routes");
 
 const app = express();
-app.use(express.json());
+app.disable("x-powered-by");
+app.set("trust proxy", Number(process.env.TRUST_PROXY || 1));
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
+
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "1mb" }));
+
+const globalLimiter = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+  limit: Number(process.env.RATE_LIMIT_MAX || 300),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { message: "Too many requests. Please try again later." },
+});
+
+const authLimiter = rateLimit({
+  windowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+  limit: Number(process.env.AUTH_RATE_LIMIT_MAX || 30),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { message: "Too many authentication requests. Please try again later." },
+});
+
+app.use(globalLimiter);
 
 /* =========================
    ✅ CORS CONFIG (LOCAL + PROD)
 ========================= */
-const allowedOrigins = [
+const defaultAllowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3003",
   "http://127.0.0.1:3000",
   "https://kiot-blush.vercel.app",
   "https://kiot-dev.vercel.app",
 ];
+
+const allowedOrigins = (process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+if (allowedOrigins.length === 0) {
+  allowedOrigins.push(...defaultAllowedOrigins);
+}
+
+const allowVercelPreviewOrigins =
+  String(process.env.CORS_ALLOW_VERCEL_PREVIEWS || "false").toLowerCase() === "true";
 
 app.use(
     cors({
@@ -50,12 +91,12 @@ app.use(
                 return callback(null, true);
             }
 
-            // allow all Vercel preview domains
-            if (origin.endsWith(".vercel.app")) {
+            // optional: allow all Vercel preview domains only when explicitly enabled
+            if (allowVercelPreviewOrigins && origin.endsWith(".vercel.app")) {
                 return callback(null, true);
             }
 
-            return callback(null, false);
+            return callback(new Error("Not allowed by CORS"));
         },
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
@@ -100,7 +141,7 @@ app.use("/api", (req, res, next) => {
    ROUTES
 ========================= */
 app.use("/api/users", userRoutes);
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/colors", require("./routes/color.routes"));
 app.use("/api/sizes", require("./routes/size.routes"));
@@ -123,6 +164,11 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/vouchers", require("./routes/voucher.routes"));
 app.use("/api/customer-vouchers", require("./routes/customer_voucher.routes"));
 app.get("/health", (req, res) => {
+    const expectedToken = process.env.HEALTH_CHECK_TOKEN;
+    if (expectedToken && req.headers["x-health-check-token"] !== expectedToken) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
     res.status(200).json({
         status: "ok",
         service: "backend"

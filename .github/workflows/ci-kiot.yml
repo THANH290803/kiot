@@ -18,6 +18,7 @@ env:
   DEV_FRONTEND_URL: https://kiot-dev.vercel.app
   PROD_BACKEND_URL: https://kiot-7o5h.onrender.com
   PROD_FRONTEND_URL: https://kiot-blush.vercel.app
+  HEALTH_CHECK_TOKEN: ${{ secrets.RENDER_HEALTH_TOKEN }}
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -67,10 +68,15 @@ jobs:
           set -euo pipefail
 
           URL="${DEV_BACKEND_URL}/health"
+          CURL_ARGS=(-s -o body.txt -w "%{http_code}")
+
+          if [ -n "${HEALTH_CHECK_TOKEN}" ]; then
+            CURL_ARGS+=(-H "x-health-check-token: ${HEALTH_CHECK_TOKEN}")
+          fi
 
           for i in 1 2 3 4 5
           do
-            STATUS=$(curl -s -o body.txt -w "%{http_code}" "$URL" || true)
+            STATUS=$(curl "${CURL_ARGS[@]}" "$URL" || true)
             BODY=$(cat body.txt || true)
 
             if [ "$STATUS" = "200" ] && [[ "$BODY" == *"ok"* ]]; then
@@ -143,10 +149,15 @@ jobs:
           set -euo pipefail
 
           URL="${PROD_BACKEND_URL}/health"
+          CURL_ARGS=(-s -o body.txt -w "%{http_code}")
+
+          if [ -n "${HEALTH_CHECK_TOKEN}" ]; then
+            CURL_ARGS+=(-H "x-health-check-token: ${HEALTH_CHECK_TOKEN}")
+          fi
 
           for i in 1 2 3 4 5
           do
-            STATUS=$(curl -s -o body.txt -w "%{http_code}" "$URL" || true)
+            STATUS=$(curl "${CURL_ARGS[@]}" "$URL" || true)
             BODY=$(cat body.txt || true)
 
             if [ "$STATUS" = "200" ] && [[ "$BODY" == *"ok"* ]]; then
