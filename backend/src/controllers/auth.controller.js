@@ -55,6 +55,25 @@ function issueAuthSuccessResponse(user) {
   };
 }
 
+function getEmailDeliveryErrorResponse(error) {
+  const message = String(error?.message || "");
+
+  if (
+    error?.code === "ETIMEDOUT" ||
+    error?.command === "CONN" ||
+    message.includes("Connection timeout")
+  ) {
+    return {
+      statusCode: 503,
+      body: {
+        message: "Email service is unavailable from this server. Please check SMTP outbound access or use an email HTTP API provider.",
+      },
+    };
+  }
+
+  return null;
+}
+
 const login = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -101,6 +120,11 @@ const login = async (req, res) => {
       message: "Đã gửi mã OTP xác thực 2 lớp qua email.",
     });
   } catch (err) {
+    const emailError = getEmailDeliveryErrorResponse(err);
+    if (emailError) {
+      return res.status(emailError.statusCode).json(emailError.body);
+    }
+
     res.status(500).json({ message: err.message });
   }
 };
@@ -160,6 +184,11 @@ const getTwoFactorStatus = async (req, res) => {
       two_factor_enabled_at: user.two_factor_enabled_at,
     });
   } catch (err) {
+    const emailError = getEmailDeliveryErrorResponse(err);
+    if (emailError) {
+      return res.status(emailError.statusCode).json(emailError.body);
+    }
+
     return res.status(500).json({ message: err.message });
   }
 };

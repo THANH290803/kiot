@@ -1,0 +1,33 @@
+name: keep-render-awake
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DEV_BACKEND_URL: https://kiot-dev.onrender.com
+  PROD_BACKEND_URL: https://kiot-7o5h.onrender.com
+
+concurrency:
+  group: keep-render-awake
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Ping Render Backends
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping development backend
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --max-time 20 "${DEV_BACKEND_URL}/health"
+
+      - name: Ping production backend
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --max-time 20 "${PROD_BACKEND_URL}/health"
