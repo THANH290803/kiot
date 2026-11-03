@@ -1,16 +1,22 @@
 import { useState, useEffect, useCallback } from "react"
 import api from "@/lib/api"
 
+export type BrandItem = {
+  id: number
+  name: string
+  description?: string | null
+}
+
 export function useBrands() {
-  const [brands, setBrands] = useState<any[]>([])
+  const [brands, setBrands] = useState<BrandItem[]>([])
   const [loading, setLoading] = useState(false)
 
   const [search, setSearch] = useState("")
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
 
-  const [editingBrand, setEditingBrand] = useState<any>(null)
-  const [deletingBrand, setDeletingBrand] = useState<any>(null)
+  const [editingBrand, setEditingBrand] = useState<BrandItem | null>(null)
+  const [deletingBrand, setDeletingBrand] = useState<BrandItem | null>(null)
 
   const [newName, setNewName] = useState("")
   const [newDescription, setNewDescription] = useState("")
@@ -18,12 +24,28 @@ export function useBrands() {
   const [editName, setEditName] = useState("")
   const [editDescription, setEditDescription] = useState("")
 
+  const resetCreateBrandForm = useCallback(() => {
+    setNewName("")
+    setNewDescription("")
+  }, [])
+
+  const resetEditBrandForm = useCallback(() => {
+    setEditingBrand(null)
+    setEditName("")
+    setEditDescription("")
+  }, [])
+
+  const resetDeleteBrandState = useCallback(() => {
+    setDeletingBrand(null)
+  }, [])
+
   // ===== Fetch =====
   const fetchBrands = useCallback(async () => {
     try {
       setLoading(true)
       const res = await api.get("/api/brands")
-      setBrands(res.data.data ?? res.data)
+      const nextBrands = res.data.data ?? res.data
+      setBrands(Array.isArray(nextBrands) ? nextBrands : [])
     } catch (err) {
       console.error("Fetch brands error:", err)
     } finally {
@@ -59,8 +81,7 @@ export function useBrands() {
         name: newName,
         description: newDescription || null,
       })
-      setNewName("")
-      setNewDescription("")
+      resetCreateBrandForm()
       fetchBrands()
     } finally {
       setLoading(false)
@@ -77,7 +98,7 @@ export function useBrands() {
         name: editName,
         description: editDescription || null,
       })
-      setEditingBrand(null)
+      resetEditBrandForm()
       fetchBrands()
     } finally {
       setLoading(false)
@@ -96,7 +117,7 @@ export function useBrands() {
         setCurrentPage((p) => Math.max(1, p - 1))
       }
 
-      setDeletingBrand(null)
+      resetDeleteBrandState()
       fetchBrands()
     } finally {
       setLoading(false)
@@ -123,6 +144,7 @@ export function useBrands() {
     newDescription,
     setNewDescription,
     createBrand,
+    resetCreateBrandForm,
 
     editingBrand,
     setEditingBrand,
@@ -131,9 +153,11 @@ export function useBrands() {
     editDescription,
     setEditDescription,
     updateBrand,
+    resetEditBrandForm,
 
     deletingBrand,
     setDeletingBrand,
     deleteBrand,
+    resetDeleteBrandState,
   }
 }

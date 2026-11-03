@@ -53,6 +53,40 @@ function AttributesPageContent() {
   const [sizeName, setSizeName] = useState("")
   const [sizeDescription, setSizeDescription] = useState("")
 
+  const resetSizeForm = () => {
+    setSizeName("")
+    setSizeDescription("")
+  }
+
+  const resetEditSize = () => {
+    setEditingSize(null)
+    resetSizeForm()
+  }
+
+  const handleAddSizeOpenChange = (open: boolean) => {
+    setIsAddSizeOpen(open)
+
+    if (!open) {
+      resetSizeForm()
+    }
+  }
+
+  const handleEditSizeOpenChange = (open: boolean) => {
+    setIsEditSizeOpen(open)
+
+    if (!open) {
+      resetEditSize()
+    }
+  }
+
+  const handleDeleteSizeOpenChange = (open: boolean) => {
+    setIsDeleteSizeOpen(open)
+
+    if (!open) {
+      setEditingSize(null)
+    }
+  }
+
   /* ===== handlers ===== */
   const openEditSize = (size: Size) => {
     setEditingSize(size)
@@ -68,9 +102,7 @@ function AttributesPageContent() {
 
   const handleCreateSize = async () => {
     await createSize({ name: sizeName, description: sizeDescription })
-    setIsAddSizeOpen(false)
-    setSizeName("")
-    setSizeDescription("")
+    handleAddSizeOpenChange(false)
   }
 
   const handleUpdateSize = async () => {
@@ -79,13 +111,13 @@ function AttributesPageContent() {
       name: sizeName,
       description: sizeDescription,
     })
-    setIsEditSizeOpen(false)
+    handleEditSizeOpenChange(false)
   }
 
   const handleDeleteSize = async () => {
     if (!editingSize) return
     await deleteSize(editingSize.id)
-    setIsDeleteSizeOpen(false)
+    handleDeleteSizeOpenChange(false)
   }
 
 
@@ -112,6 +144,40 @@ function AttributesPageContent() {
   const [colorName, setColorName] = useState("")
   const [colorCode, setColorCode] = useState("#000000")
 
+  const resetColorForm = () => {
+    setColorName("")
+    setColorCode("#000000")
+  }
+
+  const resetEditColor = () => {
+    setEditingColor(null)
+    resetColorForm()
+  }
+
+  const handleAddColorOpenChange = (open: boolean) => {
+    setIsAddColorOpen(open)
+
+    if (!open) {
+      resetColorForm()
+    }
+  }
+
+  const handleEditColorOpenChange = (open: boolean) => {
+    setIsEditColorOpen(open)
+
+    if (!open) {
+      resetEditColor()
+    }
+  }
+
+  const handleDeleteColorOpenChange = (open: boolean) => {
+    setIsDeleteColorOpen(open)
+
+    if (!open) {
+      setEditingColor(null)
+    }
+  }
+
   const openEditColor = (color: Color) => {
     setEditingColor(color)
     setColorName(color.name)
@@ -126,9 +192,7 @@ function AttributesPageContent() {
 
   const handleCreateColor = async () => {
     await createColor({ name: colorName, code: colorCode })
-    setIsAddColorOpen(false)
-    setColorName("")
-    setColorCode("#000000")
+    handleAddColorOpenChange(false)
   }
 
   const handleUpdateColor = async () => {
@@ -137,13 +201,13 @@ function AttributesPageContent() {
       name: colorName,
       code: colorCode,
     })
-    setIsEditColorOpen(false)
+    handleEditColorOpenChange(false)
   }
 
   const handleDeleteColor = async () => {
     if (!editingColor) return
     await deleteColor(editingColor.id)
-    setIsDeleteColorOpen(false)
+    handleDeleteColorOpenChange(false)
   }
 
 
@@ -157,7 +221,7 @@ function AttributesPageContent() {
             <p className="text-sm text-muted-foreground">Quản lý màu sắc, kích cỡ và các thuộc tính khác</p>
           </div>
           {activeTab === "colors" ? (
-            <Dialog open={isAddColorOpen} onOpenChange={setIsAddColorOpen}>
+            <Dialog open={isAddColorOpen} onOpenChange={handleAddColorOpenChange}>
               <DialogTrigger asChild>
                 <Button className="bg-primary">
                   <Plus className="h-4 w-4 mr-2" /> Thêm màu sắc
@@ -182,7 +246,7 @@ function AttributesPageContent() {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAddColorOpen(false)}>
+                  <Button variant="outline" onClick={() => handleAddColorOpenChange(false)}>
                     Hủy
                   </Button>
                   <Button className="bg-primary" onClick={handleCreateColor}>
@@ -193,7 +257,7 @@ function AttributesPageContent() {
             </Dialog>
           ) : null}
           {activeTab === "sizes" ? (
-            <Dialog open={isAddSizeOpen} onOpenChange={setIsAddSizeOpen}>
+            <Dialog open={isAddSizeOpen} onOpenChange={handleAddSizeOpenChange}>
               <DialogTrigger asChild>
                 <Button className="bg-primary">
                   <Plus className="h-4 w-4 mr-2" /> Thêm kích cỡ
@@ -222,11 +286,7 @@ function AttributesPageContent() {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => {
-                    setIsAddSizeOpen(false)
-                    setSizeName("")
-                    setSizeDescription("")
-                  }} >
+                  <Button variant="outline" onClick={() => handleAddSizeOpenChange(false)} >
                     Hủy
                   </Button>
                   <Button className="bg-primary"
@@ -478,7 +538,7 @@ function AttributesPageContent() {
           </TabsContent>
         </Tabs>
 
-        <Dialog open={isEditColorOpen} onOpenChange={setIsEditColorOpen}>
+        <Dialog open={isEditColorOpen} onOpenChange={handleEditColorOpenChange}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Sửa màu sắc</DialogTitle>
@@ -496,7 +556,7 @@ function AttributesPageContent() {
               </div>
             )}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditColorOpen(false)}>
+              <Button variant="outline" onClick={() => handleEditColorOpenChange(false)}>
                 Hủy
               </Button>
               <Button className="bg-primary" onClick={handleUpdateColor}>
@@ -506,7 +566,7 @@ function AttributesPageContent() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={isEditSizeOpen} onOpenChange={setIsEditSizeOpen}>
+        <Dialog open={isEditSizeOpen} onOpenChange={handleEditSizeOpenChange}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Sửa kích cỡ</DialogTitle>
@@ -527,7 +587,7 @@ function AttributesPageContent() {
               </div>
             )}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditSizeOpen(false)}>
+              <Button variant="outline" onClick={() => handleEditSizeOpenChange(false)}>
                 Hủy
               </Button>
               <Button className="bg-primary" onClick={handleUpdateSize}>
@@ -537,7 +597,7 @@ function AttributesPageContent() {
           </DialogContent>
         </Dialog>
 
-        <AlertDialog open={isDeleteColorOpen} onOpenChange={setIsDeleteColorOpen}>
+        <AlertDialog open={isDeleteColorOpen} onOpenChange={handleDeleteColorOpenChange}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Xóa màu sắc</AlertDialogTitle>
@@ -554,7 +614,7 @@ function AttributesPageContent() {
           </AlertDialogContent>
         </AlertDialog>
 
-        <AlertDialog open={isDeleteSizeOpen} onOpenChange={setIsDeleteSizeOpen}>
+        <AlertDialog open={isDeleteSizeOpen} onOpenChange={handleDeleteSizeOpenChange}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Xóa kích cỡ</AlertDialogTitle>

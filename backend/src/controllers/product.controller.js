@@ -9,13 +9,62 @@ const Brand = db.Brand;
 const ProductVariant = db.ProductVariant;
 const Image = db.Image;
 
+const categoryProductInclude = {
+  model: Category,
+  as: "category",
+  attributes: ["id", "name", "parent_id"],
+  include: [
+    {
+      model: Category,
+      as: "parent",
+      attributes: ["id", "name"],
+      required: false,
+    },
+  ],
+};
+
 const includeRelations = [
-  { model: Category, as: "category", attributes: ["id", "name"] },
+  categoryProductInclude,
   { model: Brand, as: "brand", attributes: ["id", "name"] },
 ];
 
 const CLOUDINARY_FOLDER =
     process.env.CLOUDINARY_FOLDER || "avatarProduct";
+
+function isTruthy(value) {
+  return value === true || value === "true" || value === "1" || value === 1;
+}
+
+async function getCategoryFilter(categoryId, includeChildren) {
+  if (!categoryId) return null;
+
+  if (!isTruthy(includeChildren)) {
+    return categoryId;
+  }
+
+  const categories = await Category.findAll({
+    where: { deleted_at: null },
+    attributes: ["id", "parent_id"],
+  });
+  const ids = new Set([Number(categoryId)]);
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+
+    categories.forEach((category) => {
+      const id = Number(category.id);
+      const parentId = category.parent_id ? Number(category.parent_id) : null;
+
+      if (parentId && ids.has(parentId) && !ids.has(id)) {
+        ids.add(id);
+        changed = true;
+      }
+    });
+  }
+
+  return { [Op.in]: Array.from(ids) };
+}
 
 async function uploadProductAvatar(avatar, productId) {
   if (!avatar) return null;
@@ -112,7 +161,15 @@ exports.create = async (req, res) => {
 // ================= GET ALL (CHƯA XOÁ, SEARCH NAME, FILTER CATEGORY & BRAND) =================
 exports.findAll = async (req, res) => {
   try {
-    const { name, category_id, brand_id, status, page = 1, limit = 10 } = req.query;
+    const {
+      name,
+      category_id,
+      brand_id,
+      status,
+      include_children,
+      page = 1,
+      limit = 10,
+    } = req.query;
 
     const where = { deleted_at: null };
     const include = [...includeRelations];
@@ -124,7 +181,7 @@ exports.findAll = async (req, res) => {
 
     // Filter by category
     if (category_id) {
-      where.category_id = category_id;
+      where.category_id = await getCategoryFilter(category_id, include_children);
     }
 
     // Filter by brand
@@ -384,7 +441,8 @@ exports.getAllProductsWithVariants = async (req, res) => {
       name,
       category_id,
       brand_id,
-      status
+      status,
+      include_children
     } = req.query;
 
     const where = {
@@ -398,7 +456,7 @@ exports.getAllProductsWithVariants = async (req, res) => {
     }
 
     if (category_id) {
-      where.category_id = category_id;
+      where.category_id = await getCategoryFilter(category_id, include_children);
     }
 
     if (brand_id) {
@@ -418,9 +476,7 @@ exports.getAllProductsWithVariants = async (req, res) => {
 
       include: [
         {
-          model: Category,
-          as: "category",
-          attributes: ["id", "name"]
+          ...categoryProductInclude
         },
         {
           model: Brand,
@@ -494,7 +550,7 @@ exports.getAllProductsWithVariants = async (req, res) => {
 
 exports.exportProductsExcel = async (req, res) => {
   try {
-    const { name, category_id, brand_id, status } = req.query;
+    const { name, category_id, brand_id, status, include_children } = req.query;
 
     const where = {
       deleted_at: null,
@@ -507,7 +563,7 @@ exports.exportProductsExcel = async (req, res) => {
     }
 
     if (category_id) {
-      where.category_id = category_id;
+      where.category_id = await getCategoryFilter(category_id, include_children);
     }
 
     if (brand_id) {
@@ -522,9 +578,7 @@ exports.exportProductsExcel = async (req, res) => {
       where,
       include: [
         {
-          model: Category,
-          as: "category",
-          attributes: ["id", "name"],
+          ...categoryProductInclude,
         },
         {
           model: Brand,
@@ -669,9 +723,7 @@ exports.getProductDetailsWithVariants = async (req, res) => {
 
       include: [
         {
-          model: Category,
-          as: "category",
-          attributes: ["id", "name"],
+          ...categoryProductInclude,
         },
         {
           model: Brand,

@@ -69,7 +69,7 @@ export function usePermissionGroups() {
         }
         await api.post("/api/permission-groups", payload)
         await fetchGroups()
-        setIsAddDialogOpen(false)
+        handleAddDialogOpenChange(false)
     }
 
     const updateGroup = async (
@@ -84,8 +84,7 @@ export function usePermissionGroups() {
         }
         await api.patch(`/api/permission-groups/${id}`, payload)
         await fetchGroups()
-        setIsEditDialogOpen(false)
-        setEditingGroup(null)
+        handleEditDialogOpenChange(false)
     }
 
     const deleteGroup = async (id: number) => {
@@ -97,13 +96,32 @@ export function usePermissionGroups() {
         }
         await api.delete(`/api/permission-groups/${id}`)
         await fetchGroups()
-        setIsDeleteDialogOpen(false)
-        setEditingGroup(null)
+        handleDeleteDialogOpenChange(false)
     }
 
     /* ================= OPEN HELPERS ================= */
     const openAddDialog = () => {
         setIsAddDialogOpen(true)
+    }
+
+    const handleAddDialogOpenChange = (open: boolean) => {
+        setIsAddDialogOpen(open)
+    }
+
+    const handleEditDialogOpenChange = (open: boolean) => {
+        setIsEditDialogOpen(open)
+
+        if (!open) {
+            setEditingGroup(null)
+        }
+    }
+
+    const handleDeleteDialogOpenChange = (open: boolean) => {
+        setIsDeleteDialogOpen(open)
+
+        if (!open) {
+            setEditingGroup(null)
+        }
     }
 
     const openEditDialog = (group: PermissionGroup) => {
@@ -137,6 +155,9 @@ export function usePermissionGroups() {
         isDeleteDialogOpen,
         setIsDeleteDialogOpen,
         editingGroup,
+        handleAddDialogOpenChange,
+        handleEditDialogOpenChange,
+        handleDeleteDialogOpenChange,
 
         /* actions */
         openAddDialog,

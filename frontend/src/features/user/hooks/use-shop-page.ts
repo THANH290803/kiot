@@ -7,6 +7,11 @@ import { api } from '@/lib/api'
 interface ApiCategory {
   id: number
   name: string
+  parent_id?: number | null
+  parent?: {
+    id: number
+    name: string
+  } | null
 }
 
 interface ApiImage {
@@ -26,7 +31,7 @@ interface ApiProduct {
   id: number
   name: string
   avatar?: string | null
-  category?: { id: number; name: string }
+  category?: ApiCategory
   variants?: ApiVariant[]
 }
 
@@ -53,6 +58,29 @@ export interface ShopProduct {
 const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&h=500&fit=crop'
 
+function getSelectableCategories(categories: ApiCategory[]) {
+  const parentIds = new Set(
+    categories
+      .map((category) => category.parent_id)
+      .filter((parentId): parentId is number => parentId !== null && parentId !== undefined),
+  )
+  const leafCategories = categories.filter((category) => !parentIds.has(category.id))
+
+  return leafCategories.length > 0 ? leafCategories : categories
+}
+
+function getCategoryLabel(category: ApiCategory | undefined | null, categories: ApiCategory[]) {
+  if (!category) return 'Khác'
+
+  const parentName =
+    category.parent?.name ||
+    (category.parent_id
+      ? categories.find((item) => String(item.id) === String(category.parent_id))?.name
+      : '')
+
+  return parentName ? `${parentName} / ${category.name}` : category.name
+}
+
 export function useShopPage() {
   const searchParams = useSearchParams()
   const categoryIdFromQuery = searchParams.get('category_id')
@@ -75,7 +103,7 @@ export function useShopPage() {
   }, [allProducts])
 
   const categoryOptions = useMemo(
-    () => ['Tất cả', ...categories.map((category) => category.name)],
+    () => ['Tất cả', ...getSelectableCategories(categories).map((category) => getCategoryLabel(category, categories))],
     [categories],
   )
 
@@ -104,6 +132,7 @@ export function useShopPage() {
 
         if (!isMounted) return
 
+        const fetchedCategories = categoriesResponse.data ?? []
         const mappedProducts: ShopProduct[] = (productsResponse.data?.data ?? []).map((product) => {
           const validVariants = (product.variants ?? []).filter(
             (variant) => Number.isFinite(Number(variant.price)) && Number(variant.price) > 0,
@@ -130,7 +159,7 @@ export function useShopPage() {
             price,
             originalPrice: price > 0 ? Math.round(price * 1.15) : price,
             image: product.avatar || firstVariantImage || FALLBACK_IMAGE,
-            category: product.category?.name || 'Khác',
+            category: getCategoryLabel(product.category, fetchedCategories),
             rating: 4.5 + ((product.id % 5) * 0.1),
             reviews: 20 + product.id * 3,
             sizes,
@@ -141,7 +170,7 @@ export function useShopPage() {
         })
 
         setAllProducts(mappedProducts)
-        setCategories(categoriesResponse.data ?? [])
+        setCategories(fetchedCategories)
       } catch {
         if (!isMounted) return
         setError('Không thể tải dữ liệu sản phẩm. Vui lòng thử lại.')
@@ -171,7 +200,7 @@ export function useShopPage() {
 
     const matchedCategory = categories.find((category) => category.id === categoryId)
     if (matchedCategory) {
-      setSelectedCategory(matchedCategory.name)
+      setSelectedCategory(getCategoryLabel(matchedCategory, categories))
     }
   }, [categoryIdFromQuery, categories])
 

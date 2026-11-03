@@ -30,7 +30,9 @@ const defaultDraftVariant: DraftVariantState = {
 
 const defaultEditForm: EditFormState = {
   name: "",
+  categoryId: "",
   category: "",
+  brandId: "",
   brand: "",
   status: "active",
   description: "",
@@ -92,6 +94,17 @@ function buildEditableVariants(product: ProductDialogData | null | undefined): E
   })
 }
 
+function getSelectableCategories(categories: EntityOption[]) {
+  const parentIds = new Set(
+    categories
+      .map((category) => category.parent_id)
+      .filter((parentId): parentId is number => parentId !== null && parentId !== undefined),
+  )
+  const leafCategories = categories.filter((category) => !parentIds.has(category.id))
+
+  return leafCategories.length > 0 ? leafCategories : categories
+}
+
 function updateEditableVariant(
   variants: EditableVariant[],
   variantId: number,
@@ -135,6 +148,7 @@ export function useProductFormDialog({
   const isEditingVariant = product?.editingVariantId !== undefined
   const isSelectingVariantForImages = product?.selectedVariantForImages !== undefined
   const isEditingMainProduct = isEditing && !isEditingVariant && !isSelectingVariantForImages
+  const categoryOptions = useMemo(() => getSelectableCategories(categories), [categories])
 
   useEffect(() => {
     if (!open) {
@@ -179,7 +193,9 @@ export function useProductFormDialog({
       setSelectedVariantId(product.editingVariantId ?? product.selectedVariantForImages ?? null)
       setEditForm({
         name: product.name || "",
+        categoryId: product.categoryId ? String(product.categoryId) : "",
         category: product.category || "",
+        brandId: product.brandId ? String(product.brandId) : "",
         brand: product.brand || "",
         status: product.status || "active",
         description: product.description || "",
@@ -192,7 +208,7 @@ export function useProductFormDialog({
     setCreateForm({
       name: "",
       description: "",
-      categoryId: categories[0] ? String(categories[0].id) : "",
+      categoryId: categoryOptions[0] ? String(categoryOptions[0].id) : "",
       brandId: brands[0] ? String(brands[0].id) : "",
     })
     setAvatarFile(null)
@@ -202,7 +218,7 @@ export function useProductFormDialog({
     setEditForm(defaultEditForm)
     setEditableVariants([])
     setSelectedVariantId(null)
-  }, [open, product, categories, brands])
+  }, [open, product, categoryOptions, brands])
 
   const createVariantSummary = useMemo(
     () =>
@@ -222,9 +238,44 @@ export function useProductFormDialog({
     [editableVariants, isEditingVariant, isSelectingVariantForImages, selectedVariantId],
   )
 
+  const revokeObjectUrl = (url?: string | null) => {
+    if (url?.startsWith("blob:")) {
+      URL.revokeObjectURL(url)
+    }
+  }
+
+  const resetDialogState = () => {
+    revokeObjectUrl(avatarPreview)
+    revokeObjectUrl(editForm.avatar)
+    createVariants.forEach((variant) => {
+      variant.previewUrls.forEach(revokeObjectUrl)
+    })
+    editableVariants.forEach((variant) => {
+      variant.variantImages?.forEach(revokeObjectUrl)
+    })
+
+    setSubmitError(null)
+    setCreateForm(defaultCreateForm)
+    setAvatarFile(null)
+    setAvatarPreview("")
+    setCreateVariants([])
+    setDraftVariant(defaultDraftVariant)
+    setEditForm(defaultEditForm)
+    setEditableVariants([])
+    setSelectedVariantId(null)
+    setZoomImage(null)
+  }
+
   const handleClose = () => {
     if (!isSubmitting) {
+      resetDialogState()
       onOpenChange(false)
+    }
+  }
+
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      handleClose()
     }
   }
 
@@ -370,10 +421,10 @@ export function useProductFormDialog({
   }
 
   const handleSaveEditProduct = async () => {
-    const categoryId = categories.find((category) => category.name === editForm.category)?.id
-    const brandId = brands.find((brand) => brand.name === editForm.brand)?.id
+    const categoryId = Number(editForm.categoryId)
+    const brandId = Number(editForm.brandId)
 
-    if (!categoryId || !brandId || !product?.id) {
+    if (!Number.isFinite(categoryId) || !Number.isFinite(brandId) || !product?.id) {
       setSubmitError("Thiếu danh mục hoặc thương hiệu hợp lệ để cập nhật hàng hóa.")
       return
     }
@@ -398,6 +449,7 @@ export function useProductFormDialog({
       })
 
       await onSave()
+      resetDialogState()
       onOpenChange(false)
     } catch (error) {
       console.error("Update product error:", error)
@@ -457,6 +509,7 @@ export function useProductFormDialog({
       setIsSubmitting(false)
     }
 
+    resetDialogState()
     onOpenChange(false)
   }
 
@@ -519,6 +572,7 @@ export function useProductFormDialog({
         },
       })
       await onSave()
+      resetDialogState()
       onOpenChange(false)
     } catch (error) {
       console.error("Create product error:", error)
@@ -531,6 +585,7 @@ export function useProductFormDialog({
   return {
     colors,
     sizes,
+    categoryOptions,
     isSubmitting,
     submitError,
     createForm,
@@ -554,6 +609,7 @@ export function useProductFormDialog({
     createVariantSummary,
     editingVariant,
     handleClose,
+    handleDialogOpenChange,
     handleAvatarChange,
     clearAvatar,
     handleAddCreateVariant,

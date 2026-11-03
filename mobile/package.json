@@ -1,0 +1,31 @@
+{
+  "name": "kiot-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "start:clean": "expo start --clear --localhost",
+    "start:port": "expo start --clear --localhost --port 8082",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "web:clean": "expo start --web --clear --localhost",
+    "web:port": "expo start --web --clear --localhost --port 8082",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "^56.0.13",
+    "@expo/vector-icons": "^15.0.3",
+    "expo": "^56.0.0",
+    "expo-status-bar": "^3.0.8",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.7",
+    "react-native": "^0.83.0",
+    "react-native-web": "^0.21.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "typescript": "^5.9.3"
+  }
+}

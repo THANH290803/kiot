@@ -75,12 +75,12 @@ export default function PermissionGroupsPage() {
 
     /* dialog state */
     isAddDialogOpen,
-    setIsAddDialogOpen,
     isEditDialogOpen,
-    setIsEditDialogOpen,
     isDeleteDialogOpen,
-    setIsDeleteDialogOpen,
     editingGroup,
+    handleAddDialogOpenChange,
+    handleEditDialogOpenChange,
+    handleDeleteDialogOpenChange,
 
     /* actions */
     openAddDialog,
@@ -131,7 +131,7 @@ export default function PermissionGroupsPage() {
             </p>
           </div>
 
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <Dialog open={isAddDialogOpen} onOpenChange={handleAddDialogOpenChange}>
             <DialogTrigger asChild>
               <Button
                 className="gap-2 bg-primary hover:bg-primary/90"
@@ -162,7 +162,7 @@ export default function PermissionGroupsPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setIsAddDialogOpen(false)}
+                    onClick={() => handleAddDialogOpenChange(false)}
                   >
                     Hủy
                   </Button>
@@ -331,7 +331,7 @@ export default function PermissionGroupsPage() {
       </main>
 
       {/* ================= EDIT ================= */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={handleEditDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Sửa Nhóm Quyền Hạn</DialogTitle>
@@ -357,7 +357,7 @@ export default function PermissionGroupsPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setIsEditDialogOpen(false)}
+                  onClick={() => handleEditDialogOpenChange(false)}
                 >
                   Hủy
                 </Button>
@@ -371,14 +371,15 @@ export default function PermissionGroupsPage() {
       {/* ================= DELETE ================= */}
       <AlertDialog
         open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
+        onOpenChange={handleDeleteDialogOpenChange}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Xóa Nhóm Quyền Hạn</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc chắn muốn xóa nhóm quyền hạn "
-              {editingGroup?.name}"? Hành động này không thể hoàn tác.
+              Bạn có chắc chắn muốn xóa nhóm quyền hạn{" "}
+              <span className="font-semibold">{editingGroup?.name}</span>
+              ? Hành động này không thể hoàn tác.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

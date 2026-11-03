@@ -33,6 +33,28 @@ export default function SettingsPage() {
   const [errorMessage, setErrorMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const closeTwoFactorDialog = (options?: { keepFeedback?: boolean }) => {
+    setIsTwoFactorDialogOpen(false)
+    setMaskedEmail("")
+    setOtpCode("")
+    setErrorMessage("")
+
+    if (!options?.keepFeedback) {
+      setFeedbackMessage("")
+    }
+  }
+
+  const handleTwoFactorDialogOpenChange = (open: boolean) => {
+    if (open) {
+      setIsTwoFactorDialogOpen(true)
+      return
+    }
+
+    if (!isSubmitting) {
+      closeTwoFactorDialog()
+    }
+  }
+
   const loadTwoFactorStatus = async () => {
     try {
       setIsLoadingTwoFactor(true)
@@ -84,8 +106,7 @@ export default function SettingsPage() {
       setIsTwoFactorEnabled(response.is_two_factor_enabled)
       setTwoFactorEnabledAt(response.two_factor_enabled_at || null)
       setFeedbackMessage(response.message)
-      setIsTwoFactorDialogOpen(false)
-      setOtpCode("")
+      closeTwoFactorDialog({ keepFeedback: true })
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
     } finally {
@@ -181,7 +202,7 @@ export default function SettingsPage() {
         </div>
       </main>
 
-      <Dialog open={isTwoFactorDialogOpen} onOpenChange={setIsTwoFactorDialogOpen}>
+      <Dialog open={isTwoFactorDialogOpen} onOpenChange={handleTwoFactorDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{twoFactorAction === "enable" ? "Bật xác thực 2 lớp" : "Tắt xác thực 2 lớp"}</DialogTitle>
@@ -204,7 +225,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsTwoFactorDialogOpen(false)} disabled={isSubmitting}>
+            <Button variant="outline" onClick={() => closeTwoFactorDialog()} disabled={isSubmitting}>
               Hủy
             </Button>
             <Button onClick={() => void handleConfirmTwoFactorAction()} disabled={isSubmitting || otpCode.length !== 6}>

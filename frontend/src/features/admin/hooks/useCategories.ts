@@ -1,29 +1,61 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import api from "@/lib/api"
 
+export type CategoryItem = {
+  id: number
+  name: string
+  description?: string | null
+  parent_id?: number | null
+  parent?: {
+    id?: number
+    name?: string | null
+  } | null
+  parentName?: string
+}
+
 export function useCategories() {
-  const [categories, setCategories] = useState<any[]>([])
+  const [categories, setCategories] = useState<CategoryItem[]>([])
   const [loading, setLoading] = useState(false)
 
   const [search, setSearch] = useState("")
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
 
-  const [editingCategory, setEditingCategory] = useState<any>(null)
-  const [deletingCategory, setDeletingCategory] = useState<any>(null)
+  const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(null)
+  const [deletingCategory, setDeletingCategory] = useState<CategoryItem | null>(null)
 
   const [newName, setNewName] = useState("")
   const [newDescription, setNewDescription] = useState("")
+  const [newParentId, setNewParentId] = useState("none")
 
   const [editName, setEditName] = useState("")
   const [editDescription, setEditDescription] = useState("")
+  const [editParentId, setEditParentId] = useState("none")
+
+  const resetCreateCategoryForm = useCallback(() => {
+    setNewName("")
+    setNewDescription("")
+    setNewParentId("none")
+  }, [])
+
+  const resetEditCategoryForm = useCallback(() => {
+    setEditingCategory(null)
+    setEditName("")
+    setEditDescription("")
+    setEditParentId("none")
+  }, [])
+
+  const resetDeleteCategoryState = useCallback(() => {
+    setDeletingCategory(null)
+  }, [])
 
   // ===== Fetch =====
   const fetchCategories = useCallback(async () => {
     try {
       setLoading(true)
       const res = await api.get("/api/categories")
-      setCategories(res.data.data ?? res.data)
+      const nextCategories = res.data.data ?? res.data
+      setCategories(Array.isArray(nextCategories) ? nextCategories : [])
     } catch (err) {
       console.error("Fetch categories error:", err)
     } finally {
@@ -36,8 +68,26 @@ export function useCategories() {
   }, [fetchCategories])
 
   // ===== Filter + Pagination =====
-  const filteredCategories = categories.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase())
+  const categoryById = useMemo(
+    () => new Map(categories.map((category) => [String(category.id), category])),
+    [categories],
+  )
+
+  const categoriesWithParent = useMemo(
+    () =>
+      categories.map((category) => ({
+        ...category,
+        parentName:
+          category.parent?.name ||
+          (category.parent_id ? categoryById.get(String(category.parent_id))?.name : "") ||
+          "",
+      })),
+    [categories, categoryById],
+  )
+
+  const parentOptions = categoriesWithParent
+  const filteredCategories = categoriesWithParent.filter((c) =>
+    `${c.name} ${c.description || ""} ${c.parentName}`.toLowerCase().includes(search.toLowerCase())
   )
 
   const totalPages = Math.ceil(filteredCategories.length / rowsPerPage)
@@ -57,10 +107,10 @@ export function useCategories() {
       await api.post("/api/categories", {
         name: newName,
         description: newDescription || null,
+        parent_id: newParentId === "none" ? null : Number(newParentId),
       })
 
-      setNewName("")
-      setNewDescription("")
+      resetCreateCategoryForm()
       fetchCategories()
     } catch (err) {
       console.error("Create category error:", err)
@@ -78,11 +128,10 @@ export function useCategories() {
       await api.patch(`/api/categories/${editingCategory.id}`, {
         name: editName,
         description: editDescription || null,
+        parent_id: editParentId === "none" ? null : Number(editParentId),
       })
 
-      setEditingCategory(null)
-      setEditName("")
-      setEditDescription("")
+      resetEditCategoryForm()
       fetchCategories()
     } catch (err) {
       console.error("Update category error:", err)
@@ -104,7 +153,7 @@ export function useCategories() {
         setCurrentPage((p) => Math.max(1, p - 1))
       }
 
-      setDeletingCategory(null)
+      resetDeleteCategoryState()
       fetchCategories()
     } catch (err) {
       console.error("Delete category error:", err)
@@ -116,6 +165,7 @@ export function useCategories() {
   return {
     // data
     categories,
+    parentOptions,
     paginatedCategories,
     filteredCategories,
     loading,
@@ -136,7 +186,10 @@ export function useCategories() {
     setNewName,
     newDescription,
     setNewDescription,
+    newParentId,
+    setNewParentId,
     createCategory,
+    resetCreateCategoryForm,
 
     // edit
     editingCategory,
@@ -145,11 +198,15 @@ export function useCategories() {
     setEditName,
     editDescription,
     setEditDescription,
+    editParentId,
+    setEditParentId,
     updateCategory,
+    resetEditCategoryForm,
 
     // delete
     deletingCategory,
     setDeletingCategory,
     deleteCategory,
+    resetDeleteCategoryState,
   }
 }

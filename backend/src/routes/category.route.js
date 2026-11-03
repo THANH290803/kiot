@@ -51,6 +51,8 @@ const router = express.Router();
  */
 router.get("/", optionalAuthMiddleware, categoryController.findAll);
 
+router.get("/tree", optionalAuthMiddleware, categoryController.findTree);
+
 /**
  * @swagger
  * /api/categories/{id}:

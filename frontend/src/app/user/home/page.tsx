@@ -6,11 +6,54 @@ import { Footer } from '@/features/user/components/footer'
 import { ProductGrid } from '@/features/user/components/product-grid'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { ChevronRight, Truck, ShieldCheck, RotateCcw } from 'lucide-react'
-import { useHomePage } from '@/features/user/hooks/use-home-page'
+import { ArrowUpRight, ChevronDown, ChevronRight, Grid2X2, RotateCcw, ShieldCheck, Sparkles, Truck } from 'lucide-react'
+import { useHomePage, type CategoryNode } from '@/features/user/hooks/use-home-page'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+
+function countNestedCategories(category: CategoryNode): number {
+  return category.children.reduce((total, child) => total + 1 + countNestedCategories(child), 0)
+}
+
+function CategoryNestedMenu({ nodes, level = 0 }: { nodes: CategoryNode[]; level?: number }) {
+  if (nodes.length === 0) {
+    return null
+  }
+
+  return (
+    <div className={level === 0 ? 'mt-2 space-y-1 pl-3' : 'mt-1 space-y-1 pl-4'}>
+      {nodes.map((node) => {
+        const hasChildren = node.children.length > 0
+
+        return (
+          <div key={node.id}>
+            <DropdownMenuItem asChild className="cursor-pointer rounded-lg p-0">
+              <Link
+                href={`/user/shop?category_id=${node.id}`}
+                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
+                  level === 0
+                    ? 'text-foreground hover:text-primary'
+                    : 'text-muted-foreground hover:text-primary'
+                }`}
+              >
+                <span className="min-w-0 truncate">{node.name}</span>
+                {hasChildren ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ArrowUpRight className="h-3.5 w-3.5" />}
+              </Link>
+            </DropdownMenuItem>
+            <CategoryNestedMenu nodes={node.children} level={level + 1} />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 export default function HomePage() {
-  const { products, loading, error, brandsCount, featuredCollections } = useHomePage()
+  const { products, loading, error, brandsCount, featuredCollections, categoryGroups } = useHomePage()
 
   return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -58,6 +101,130 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Categories */}
+        <section className="py-14 md:py-18">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <div className="mb-3 inline-flex items-center gap-2 px-3 py-1 text-sm font-semibold text-primary">
+                  <Grid2X2 className="h-4 w-4" />
+                  Mua theo nhóm
+                </div>
+                <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground">
+                  Danh mục nổi bật
+                </h2>
+                <p className="mt-2 max-w-2xl text-muted-foreground">
+                  Chọn nhanh nhóm thời trang, sau đó mở danh mục con để đi thẳng tới sản phẩm phù hợp.
+                </p>
+              </div>
+              <Link href="/user/shop" className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80">
+                Xem tất cả sản phẩm
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            {loading ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {[...Array(4)].map((_, index) => (
+                  <div key={index} className="h-36 animate-pulse rounded-xl bg-secondary" />
+                ))}
+              </div>
+            ) : categoryGroups.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {categoryGroups.map((group) => {
+                  const previewChildren = group.children.slice(0, 3)
+                  const nestedCount = countNestedCategories(group)
+                  const href = group.children[0]
+                    ? `/user/shop?category_id=${group.children[0].id}`
+                    : `/user/shop?category_id=${group.id}`
+
+                  return (
+                    <DropdownMenu key={group.id}>
+                      <DropdownMenuTrigger asChild>
+                        <button className="group flex min-h-40 w-full flex-col justify-between rounded-xl p-5 text-left transition-all hover:-translate-y-0.5">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <div className="mb-3 flex h-10 w-10 items-center justify-center text-primary">
+                                <Sparkles className="h-5 w-5" />
+                              </div>
+                              <h3 className="text-xl font-bold text-foreground">{group.name}</h3>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {nestedCount > 0
+                                  ? `${nestedCount} danh mục bên trong`
+                                  : 'Xem sản phẩm trong nhóm này'}
+                              </p>
+                            </div>
+                            <div className="flex h-9 w-9 items-center justify-center text-muted-foreground transition-colors group-hover:text-primary">
+                              <ChevronDown className="h-4 w-4" />
+                            </div>
+                          </div>
+
+                          <div className="mt-5 flex flex-wrap gap-2">
+                            {(previewChildren.length > 0 ? previewChildren : [{ id: group.id, name: 'Khám phá' }]).map((child) => (
+                              <span
+                                key={child.id}
+                                className="px-3 py-1 text-xs font-semibold text-muted-foreground"
+                              >
+                                {child.name}
+                              </span>
+                            ))}
+                            {nestedCount > previewChildren.length && (
+                              <span className="px-3 py-1 text-xs font-semibold text-primary">
+                                +{nestedCount - previewChildren.length}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-[min(640px,calc(100vw-2rem))] border-0 p-0">
+                        <div className="px-3 py-2">
+                          <div className="px-3 py-2">
+                            <p className="text-sm font-bold text-foreground">{group.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Chọn danh mục con hoặc cấp sâu hơn
+                            </p>
+                          </div>
+                        </div>
+                        {group.children.length > 0 ? (
+                          <div className="grid max-h-[420px] gap-3 overflow-y-auto px-3 pb-3 sm:grid-cols-2">
+                            {group.children.map((child) => (
+                              <div key={child.id} className="p-3">
+                                <DropdownMenuItem asChild className="cursor-pointer rounded-lg p-0">
+                                  <Link
+                                    href={`/user/shop?category_id=${child.id}`}
+                                    className="flex items-center justify-between px-3 py-2 text-sm font-bold text-foreground hover:text-primary"
+                                  >
+                                    <span className="min-w-0 truncate">{child.name}</span>
+                                    {child.children.length > 0 ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ArrowUpRight className="h-4 w-4 text-muted-foreground" />}
+                                  </Link>
+                                </DropdownMenuItem>
+                                <CategoryNestedMenu nodes={child.children} />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="px-3 pb-3">
+                            <DropdownMenuItem asChild className="cursor-pointer rounded-lg p-0">
+                              <Link href={href} className="flex w-full items-center justify-between px-3 py-2.5">
+                                <span>{group.name}</span>
+                                <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+                              </Link>
+                            </DropdownMenuItem>
+                          </div>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )
+                })}
+              </div>
+            ) : (
+              <Card className="p-6 text-center text-muted-foreground">
+                Chưa có danh mục để hiển thị.
+              </Card>
+            )}
           </div>
         </section>
 

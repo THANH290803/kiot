@@ -47,7 +47,6 @@ export default function ProductsPage() {
     isDialogOpen,
     setIsDialogOpen,
     isDeleteDialogOpen,
-    setIsDeleteDialogOpen,
     editingProduct,
     setEditingProduct,
     deletingProductId,
@@ -62,6 +61,8 @@ export default function ProductsPage() {
     setZoomImage,
     handleEditProduct,
     handleRequestDeleteProduct,
+    handleProductDialogOpenChange,
+    handleDeleteDialogOpenChange,
     handleDelete,
     handleSaveProduct,
     handleChangeProductStatus,
@@ -71,6 +72,15 @@ export default function ProductsPage() {
     resetFilters,
     handleExportProducts,
   } = useProductsPage()
+  const getCategoryLabel = (category: (typeof categories)[number]) => {
+    const parentName =
+      category.parent?.name ||
+      (category.parent_id
+        ? categories.find((item) => String(item.id) === String(category.parent_id))?.name
+        : "")
+
+    return parentName ? `${parentName} / ${category.name}` : category.name
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -123,7 +133,7 @@ export default function ProductsPage() {
               <SelectItem value="all">Tất cả danh mục</SelectItem>
               {categories.map((category) => (
                 <SelectItem key={category.id} value={String(category.id)}>
-                  {category.name}
+                  {getCategoryLabel(category)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -288,14 +298,14 @@ export default function ProductsPage() {
 
       <ProductFormDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        onOpenChange={handleProductDialogOpenChange}
         product={editingProduct}
         categories={categories}
         brands={brands}
         onSave={handleSaveProduct}
       />
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={handleDeleteDialogOpenChange}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận xóa hàng hóa</AlertDialogTitle>

@@ -2,7 +2,7 @@
 
 import { Label } from "@/components/ui/label"
 
-import { Suspense, useState, useEffect, useCallback } from "react"
+import { Suspense, useState } from "react"
 import { HeaderNav } from "@/features/admin/components/header-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -32,8 +32,7 @@ import {
 } from "@/components/ui/pagination"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-import api from "@/lib/api"
-import { useCategories } from "@/features/admin/hooks/useCategories"
+import { useCategories, type CategoryItem } from "@/features/admin/hooks/useCategories"
 
 function CategoriesPageContent() {
   // ===== UI state =====
@@ -43,6 +42,8 @@ function CategoriesPageContent() {
 
   // ===== Hook =====
   const {
+    categories,
+    parentOptions,
     paginatedCategories,
     loading,
 
@@ -59,7 +60,10 @@ function CategoriesPageContent() {
     setNewName,
     newDescription,
     setNewDescription,
+    newParentId,
+    setNewParentId,
     createCategory,
+    resetCreateCategoryForm,
 
     editingCategory,
     setEditingCategory,
@@ -67,27 +71,62 @@ function CategoriesPageContent() {
     setEditName,
     editDescription,
     setEditDescription,
+    editParentId,
+    setEditParentId,
     updateCategory,
+    resetEditCategoryForm,
 
     deletingCategory,
     setDeletingCategory,
     deleteCategory,
+    resetDeleteCategoryState,
   } = useCategories()
 
   // ===== handlers =====
+  const handleAddDialogOpenChange = (open: boolean) => {
+    setIsAddDialogOpen(open)
+
+    if (!open) {
+      resetCreateCategoryForm()
+    }
+  }
+
+  const handleEditDialogOpenChange = (open: boolean) => {
+    setIsEditDialogOpen(open)
+
+    if (!open) {
+      resetEditCategoryForm()
+    }
+  }
+
+  const handleDeleteDialogOpenChange = (open: boolean) => {
+    setIsDeleteDialogOpen(open)
+
+    if (!open) {
+      resetDeleteCategoryState()
+    }
+  }
+
   const handleCreateCategory = async () => {
     await createCategory()
-    setIsAddDialogOpen(false)
+    handleAddDialogOpenChange(false)
   }
 
   const handleUpdateCategory = async () => {
     await updateCategory()
-    setIsEditDialogOpen(false)
+    handleEditDialogOpenChange(false)
   }
 
   const handleDeleteCategory = async () => {
     await deleteCategory()
-    setIsDeleteDialogOpen(false)
+    handleDeleteDialogOpenChange(false)
+  }
+
+  const getParentName = (category: CategoryItem) => {
+    if (category.parent?.name) return category.parent.name
+    if (!category.parent_id) return "--"
+
+    return categories.find((item) => String(item.id) === String(category.parent_id))?.name || "--"
   }
   
   return (
@@ -99,7 +138,7 @@ function CategoriesPageContent() {
             <h1 className="text-2xl font-bold tracking-tight">Quản lý danh mục</h1>
             <p className="text-sm text-muted-foreground">Phân loại và tổ chức sản phẩm theo danh mục</p>
           </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <Dialog open={isAddDialogOpen} onOpenChange={handleAddDialogOpenChange}>
             <DialogTrigger asChild>
               <Button className="bg-primary">
                 <Plus className="h-4 w-4 mr-2" /> Thêm danh mục
@@ -124,9 +163,25 @@ function CategoriesPageContent() {
                     value={newDescription}
                     onChange={(e) => setNewDescription(e.target.value)} />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category-parent">Danh mục cha</Label>
+                  <Select value={newParentId} onValueChange={setNewParentId}>
+                    <SelectTrigger id="category-parent" className="w-full">
+                      <SelectValue placeholder="Chọn danh mục cha" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Không có - danh mục gốc</SelectItem>
+                      {parentOptions.map((category) => (
+                        <SelectItem key={category.id} value={String(category.id)}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                <Button variant="outline" onClick={() => handleAddDialogOpenChange(false)}>
                   Hủy
                 </Button>
                 <Button
@@ -166,6 +221,8 @@ function CategoriesPageContent() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Tên danh mục</TableHead>
+                  <TableHead>Danh mục cha</TableHead>
+                  <TableHead>Loại</TableHead>
                   <TableHead>Mô tả</TableHead>
                   <TableHead className="text-right">Hành động</TableHead>
                 </TableRow>
@@ -175,6 +232,12 @@ function CategoriesPageContent() {
                   paginatedCategories.map((category) => (
                     <TableRow key={category.id}>
                       <TableCell className="font-medium">{category.name}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{getParentName(category)}</TableCell>
+                      <TableCell>
+                        <Badge variant={category.parent_id ? "secondary" : "default"}>
+                          {category.parent_id ? "Danh mục con" : "Nhóm cha"}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-muted-foreground text-sm">{category.description || "--"}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -189,6 +252,7 @@ function CategoriesPageContent() {
                                 setEditingCategory(category)
                                 setEditName(category.name)
                                 setEditDescription(category.description || "")
+                                setEditParentId(category.parent_id ? String(category.parent_id) : "none")
                                 setIsEditDialogOpen(true)
                               }}
                             >
@@ -210,7 +274,7 @@ function CategoriesPageContent() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
                       Không tìm thấy danh mục
                     </TableCell>
                   </TableRow>
@@ -273,7 +337,7 @@ function CategoriesPageContent() {
           </CardContent>
         </Card>
 
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <Dialog open={isEditDialogOpen} onOpenChange={handleEditDialogOpenChange}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Sửa danh mục</DialogTitle>
@@ -299,10 +363,29 @@ function CategoriesPageContent() {
                   placeholder="Mô tả ngắn về danh mục..."
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-category-parent">Danh mục cha</Label>
+                <Select value={editParentId} onValueChange={setEditParentId}>
+                  <SelectTrigger id="edit-category-parent" className="w-full">
+                    <SelectValue placeholder="Chọn danh mục cha" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Không có - danh mục gốc</SelectItem>
+                    {parentOptions
+                      .filter((category) => String(category.id) !== String(editingCategory?.id))
+                      .map((category) => (
+                        <SelectItem key={category.id} value={String(category.id)}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              <Button variant="outline" onClick={() => handleEditDialogOpenChange(false)}>
                 Hủy
               </Button>
               <Button
@@ -316,7 +399,7 @@ function CategoriesPageContent() {
           </DialogContent>
         </Dialog>
 
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={handleDeleteDialogOpenChange}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Xác nhận xóa danh mục</AlertDialogTitle>
