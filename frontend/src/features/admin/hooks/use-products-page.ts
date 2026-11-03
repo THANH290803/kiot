@@ -76,7 +76,9 @@ function mapProduct(product: ApiProduct): ProductView {
     code: variants[0]?.sku || `PRD-${product.id}`,
     name: product.name,
     category: product.category?.name || "Chưa phân loại",
+    categoryId: product.category?.id,
     brand: product.brand?.name || "Chưa có thương hiệu",
+    brandId: product.brand?.id,
     basePrice: sortedPrices[0] || 0,
     totalStock,
     status: mapStatus(product.status, totalStock),
@@ -188,6 +190,7 @@ export function useProductsPage() {
             limit: rowsPerPage,
             name: searchName || undefined,
             category_id: selectedCategoryId !== "all" ? Number(selectedCategoryId) : undefined,
+            include_children: selectedCategoryId !== "all" ? true : undefined,
             brand_id: selectedBrandId !== "all" ? Number(selectedBrandId) : undefined,
             status: selectedStatus !== "all" ? Number(selectedStatus) : undefined,
           },
@@ -233,12 +236,27 @@ export function useProductsPage() {
     setIsDeleteDialogOpen(true)
   }
 
+  const handleProductDialogOpenChange = (open: boolean) => {
+    setIsDialogOpen(open)
+
+    if (!open) {
+      setEditingProduct(null)
+    }
+  }
+
+  const handleDeleteDialogOpenChange = (open: boolean) => {
+    setIsDeleteDialogOpen(open)
+
+    if (!open) {
+      setDeletingProductId(null)
+    }
+  }
+
   const handleDelete = async (id: number) => {
     await api.delete(`/api/products/${id}`)
 
     setProducts((prevProducts) => prevProducts.filter((product) => product.id !== id))
-    setIsDeleteDialogOpen(false)
-    setDeletingProductId(null)
+    handleDeleteDialogOpenChange(false)
   }
 
   const handleSaveProduct = (productData?: Partial<ProductView>) => {
@@ -356,6 +374,7 @@ export function useProductsPage() {
         params: {
           name: searchName || undefined,
           category_id: selectedCategoryId !== "all" ? Number(selectedCategoryId) : undefined,
+          include_children: selectedCategoryId !== "all" ? true : undefined,
           brand_id: selectedBrandId !== "all" ? Number(selectedBrandId) : undefined,
           status: selectedStatus !== "all" ? Number(selectedStatus) : undefined,
         },
@@ -414,6 +433,8 @@ export function useProductsPage() {
     isExporting,
     handleEditProduct,
     handleRequestDeleteProduct,
+    handleProductDialogOpenChange,
+    handleDeleteDialogOpenChange,
     handleDelete,
     handleSaveProduct,
     handleChangeProductStatus,

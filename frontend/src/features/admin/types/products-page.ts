@@ -1,6 +1,9 @@
 export interface EntityOption {
   id: number
   name: string
+  parent_id?: number | null
+  parent?: EntityOption | null
+  children_count?: number
 }
 
 export interface ApiImage {
@@ -55,7 +58,9 @@ export interface ProductView {
   code: string
   name: string
   category: string
+  categoryId?: number
   brand: string
+  brandId?: number
   basePrice: number
   totalStock: number
   status: "active" | "inactive" | "out_of_stock"

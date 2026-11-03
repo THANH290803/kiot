@@ -7,17 +7,19 @@
     "dev": "concurrently \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:mobile": "npm run start --workspace=mobile",
     "build": "npm run build --workspace=frontend",
     "build:backend": "npm run build --workspace=backend",
     "start": "concurrently \"npm start --workspace=backend\" \"npm start --workspace=frontend\"",
-    "install:all": "npm install && npm install --workspace=backend && npm install --workspace=frontend",
+    "install:all": "npm install && npm install --workspace=backend && npm install --workspace=frontend && npm install --workspace=mobile",
     "clean": "rm -rf backend/node_modules frontend/node_modules node_modules",
     "migrate": "npm run migrate --workspace=backend",
     "seed": "npm run seed --workspace=backend"
   },
   "workspaces": [
     "backend",
-    "frontend"
+    "frontend",
+    "mobile"
   ],
   "keywords": [
     "monorepo",

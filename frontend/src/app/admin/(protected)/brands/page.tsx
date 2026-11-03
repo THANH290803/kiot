@@ -52,19 +52,45 @@ function BrandsPageContent() {
     newDescription,
     setNewDescription,
     createBrand,
+    resetCreateBrandForm,
 
-    editingBrand,
     setEditingBrand,
     editName,
     setEditName,
     editDescription,
     setEditDescription,
     updateBrand,
+    resetEditBrandForm,
 
     deletingBrand,
     setDeletingBrand,
     deleteBrand,
+    resetDeleteBrandState,
   } = useBrands()
+
+  const handleAddDialogOpenChange = (open: boolean) => {
+    setIsAddDialogOpen(open)
+
+    if (!open) {
+      resetCreateBrandForm()
+    }
+  }
+
+  const handleEditDialogOpenChange = (open: boolean) => {
+    setIsEditDialogOpen(open)
+
+    if (!open) {
+      resetEditBrandForm()
+    }
+  }
+
+  const handleDeleteDialogOpenChange = (open: boolean) => {
+    setIsDeleteDialogOpen(open)
+
+    if (!open) {
+      resetDeleteBrandState()
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -81,7 +107,7 @@ function BrandsPageContent() {
           </div>
 
           {/* ADD */}
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <Dialog open={isAddDialogOpen} onOpenChange={handleAddDialogOpenChange}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" /> Thêm thương hiệu
@@ -104,11 +130,11 @@ function BrandsPageContent() {
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Hủy</Button>
+                <Button variant="outline" onClick={() => handleAddDialogOpenChange(false)}>Hủy</Button>
                 <Button
                   onClick={async () => {
                     await createBrand()
-                    setIsAddDialogOpen(false)
+                    handleAddDialogOpenChange(false)
                   }}
                   disabled={loading}
                 >
@@ -271,7 +297,7 @@ function BrandsPageContent() {
         </Card>
 
         {/* EDIT */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <Dialog open={isEditDialogOpen} onOpenChange={handleEditDialogOpenChange}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Sửa thương hiệu</DialogTitle>
@@ -298,14 +324,14 @@ function BrandsPageContent() {
             <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => setIsEditDialogOpen(false)}
+                onClick={() => handleEditDialogOpenChange(false)}
               >
                 Hủy
               </Button>
               <Button
                 onClick={async () => {
                   await updateBrand()
-                  setIsEditDialogOpen(false)
+                  handleEditDialogOpenChange(false)
                 }}
                 disabled={loading}
               >
@@ -316,7 +342,7 @@ function BrandsPageContent() {
         </Dialog>
 
         {/* DELETE */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={handleDeleteDialogOpenChange}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Xác nhận xóa thương hiệu</AlertDialogTitle>
@@ -332,7 +358,7 @@ function BrandsPageContent() {
                 className="bg-destructive text-destructive-foreground"
                 onClick={async () => {
                   await deleteBrand()
-                  setIsDeleteDialogOpen(false)
+                  handleDeleteDialogOpenChange(false)
                 }}
               >
                 Xóa

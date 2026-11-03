@@ -1,6 +1,9 @@
 export interface EntityOption {
   id: number
   name: string
+  parent_id?: number | null
+  parent?: EntityOption | null
+  children_count?: number
 }
 
 export interface ProductImage {
@@ -25,7 +28,9 @@ export interface EditableVariant {
 export interface ProductDialogData {
   id: number
   name: string
+  categoryId?: number
   category: string
+  brandId?: number
   brand: string
   status: "active" | "inactive" | "out_of_stock"
   description: string | null
@@ -81,7 +86,9 @@ export interface DraftVariantState {
 
 export interface EditFormState {
   name: string
+  categoryId: string
   category: string
+  brandId: string
   brand: string
   status: ProductDialogData["status"]
   description: string

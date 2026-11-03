@@ -22,6 +22,7 @@ export function ProductFormDialog({
   const {
     colors,
     sizes,
+    categoryOptions,
     isSubmitting,
     submitError,
     createForm,
@@ -41,6 +42,7 @@ export function ProductFormDialog({
     createVariantSummary,
     editingVariant,
     handleClose,
+    handleDialogOpenChange,
     handleAvatarChange,
     clearAvatar,
     handleAddCreateVariant,
@@ -62,8 +64,18 @@ export function ProductFormDialog({
     onSave,
   })
 
+  const getCategoryLabel = (category: (typeof categories)[number]) => {
+    const parentName =
+      category.parent?.name ||
+      (category.parent_id
+        ? categories.find((item) => String(item.id) === String(category.parent_id))?.name
+        : "")
+
+    return parentName ? `${parentName} / ${category.name}` : category.name
+  }
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="!max-w-4xl max-h-[90vh] flex flex-col gap-0 p-0">
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <DialogTitle className="text-lg">
@@ -140,10 +152,10 @@ export function ProductFormDialog({
                     <div className="space-y-2">
                       <Label htmlFor="category">Danh mục</Label>
                       <Select
-                        value={isEditing ? editForm.category : createForm.categoryId}
+                        value={isEditing ? editForm.categoryId : createForm.categoryId}
                         onValueChange={(value) =>
                           isEditing
-                            ? setEditForm((current) => ({ ...current, category: value }))
+                            ? setEditForm((current) => ({ ...current, categoryId: value }))
                             : setCreateForm((current) => ({ ...current, categoryId: value }))
                         }
                       >
@@ -151,9 +163,9 @@ export function ProductFormDialog({
                           <SelectValue placeholder="Chọn danh mục" />
                         </SelectTrigger>
                         <SelectContent>
-                          {categories.map((category) => (
-                            <SelectItem key={category.id} value={isEditing ? category.name : String(category.id)}>
-                              {category.name}
+                          {categoryOptions.map((category) => (
+                            <SelectItem key={category.id} value={String(category.id)}>
+                              {getCategoryLabel(category)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -163,10 +175,10 @@ export function ProductFormDialog({
                     <div className="space-y-2">
                       <Label htmlFor="brand">Thương hiệu</Label>
                       <Select
-                        value={isEditing ? editForm.brand : createForm.brandId}
+                        value={isEditing ? editForm.brandId : createForm.brandId}
                         onValueChange={(value) =>
                           isEditing
-                            ? setEditForm((current) => ({ ...current, brand: value }))
+                            ? setEditForm((current) => ({ ...current, brandId: value }))
                             : setCreateForm((current) => ({ ...current, brandId: value }))
                         }
                       >
@@ -175,7 +187,7 @@ export function ProductFormDialog({
                         </SelectTrigger>
                         <SelectContent>
                           {brands.map((brand) => (
-                            <SelectItem key={brand.id} value={isEditing ? brand.name : String(brand.id)}>
+                            <SelectItem key={brand.id} value={String(brand.id)}>
                               {brand.name}
                             </SelectItem>
                           ))}

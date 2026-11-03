@@ -3,9 +3,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '@/lib/api'
 
-interface ApiCategory {
+export interface ApiCategory {
   id: number
   name: string
+  parent_id?: number | null
+  parent?: {
+    id: number
+    name: string
+  } | null
 }
 
 interface ApiBrand {
@@ -28,10 +33,7 @@ interface ApiProduct {
   id: number
   name: string
   avatar?: string | null
-  category?: {
-    id: number
-    name: string
-  }
+  category?: ApiCategory
   variants?: ApiVariant[]
 }
 
@@ -50,8 +52,74 @@ export interface ProductCardItem {
   reviews: number
 }
 
+export interface CategoryNode extends ApiCategory {
+  children: CategoryNode[]
+}
+
 const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&h=500&fit=crop'
+
+function getSelectableCategories(categories: ApiCategory[]) {
+  const parentIds = new Set(
+    categories
+      .map((category) => category.parent_id)
+      .filter((parentId): parentId is number => parentId !== null && parentId !== undefined),
+  )
+  const leafCategories = categories.filter((category) => !parentIds.has(category.id))
+
+  return leafCategories.length > 0 ? leafCategories : categories
+}
+
+function getCategoryLabel(category: ApiCategory | undefined | null, categories: ApiCategory[]) {
+  if (!category) return 'Khác'
+
+  const parentName =
+    category.parent?.name ||
+    (category.parent_id
+      ? categories.find((item) => String(item.id) === String(category.parent_id))?.name
+      : '')
+
+  return parentName ? `${parentName} / ${category.name}` : category.name
+}
+
+function getCategoryTree(categories: ApiCategory[]): CategoryNode[] {
+  const sortedCategories = [...categories].sort((a, b) => a.id - b.id)
+  const nodeById = new Map<number, CategoryNode>(
+    sortedCategories.map((category) => [category.id, { ...category, children: [] }]),
+  )
+  const syntheticRootById = new Map<number, CategoryNode>()
+  const roots: CategoryNode[] = []
+
+  sortedCategories.forEach((category) => {
+    const node = nodeById.get(category.id)
+    if (!node) return
+
+    if (!category.parent_id) {
+      roots.push(node)
+      return
+    }
+
+    const parentNode = nodeById.get(category.parent_id)
+    if (parentNode) {
+      parentNode.children.push(node)
+      return
+    }
+
+    const syntheticRoot =
+      syntheticRootById.get(category.parent_id) ??
+      {
+        id: category.parent_id,
+        name: category.parent?.name || 'Danh mục',
+        parent_id: null,
+        children: [],
+      }
+
+    syntheticRoot.children.push(node)
+    syntheticRootById.set(category.parent_id, syntheticRoot)
+  })
+
+  return [...roots, ...Array.from(syntheticRootById.values())]
+}
 
 export function useHomePage() {
   const [products, setProducts] = useState<ProductCardItem[]>([])
@@ -78,6 +146,7 @@ export function useHomePage() {
 
         if (!isMounted) return
 
+        const fetchedCategories = categoriesResponse.data ?? []
         const mappedProducts: ProductCardItem[] = (productsResponse.data?.data ?? []).map((product) => {
           const variantPrices = (product.variants ?? [])
             .map((variant) => Number(variant.price))
@@ -94,14 +163,14 @@ export function useHomePage() {
             price,
             originalPrice: price > 0 ? Math.round(price * 1.15) : price,
             image: product.avatar || firstVariantImage || FALLBACK_IMAGE,
-            category: product.category?.name || 'Khác',
+            category: getCategoryLabel(product.category, fetchedCategories),
             rating: 4.5 + ((product.id % 5) * 0.1),
             reviews: 20 + product.id * 3,
           }
         })
 
         setProducts(mappedProducts)
-        setCategories(categoriesResponse.data ?? [])
+        setCategories(fetchedCategories)
         setBrandsCount((brandsResponse.data ?? []).length)
       } catch {
         if (!isMounted) return
@@ -119,11 +188,12 @@ export function useHomePage() {
   }, [])
 
   const featuredCollections = useMemo(() => {
-    const fromCategories = categories.slice(0, 3).map((category) => {
-      const firstProduct = products.find((product) => product.category === category.name)
+    const fromCategories = getSelectableCategories(categories).slice(0, 3).map((category) => {
+      const categoryLabel = getCategoryLabel(category, categories)
+      const firstProduct = products.find((product) => product.category === categoryLabel)
       return {
         id: category.id,
-        name: category.name,
+        name: categoryLabel,
         image: firstProduct?.image || FALLBACK_IMAGE,
       }
     })
@@ -139,11 +209,14 @@ export function useHomePage() {
     }))
   }, [categories, products])
 
+  const categoryGroups = useMemo(() => getCategoryTree(categories), [categories])
+
   return {
     products,
     loading,
     error,
     brandsCount,
     featuredCollections,
+    categoryGroups,
   }
 }
